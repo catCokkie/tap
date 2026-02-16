@@ -1,0 +1,354 @@
+[gd_scene load_steps=12 format=3 uid="uid://c8yvxg3ulq3a"]
+
+[ext_resource type="Script" path="res://Scripts/Core/GameManager.cs" id="1_abc123"]
+[ext_resource type="Script" path="res://Scripts/UI/GameHUD.cs" id="2_def456"]
+[ext_resource type="Script" path="res://Scripts/UI/CultivationDisplay.cs" id="3_ghi789"]
+[ext_resource type="Script" path="res://Scripts/UI/LogDisplay.cs" id="4_jkl012"]
+[ext_resource type="Script" path="res://Scripts/UI/HerbGardenDisplay.cs" id="5_mno345"]
+[ext_resource type="Script" path="res://Scripts/UI/AlchemyDisplay.cs" id="6_pqr678"]
+[ext_resource type="Script" path="res://Scripts/UI/SpiritPetDisplay.cs" id="7_stu901"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.102, 0.102, 0.102, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.3, 0.3, 0.3, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button"]
+bg_color = Color(0.2, 0.4, 0.6, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
+bg_color = Color(0.3, 0.5, 0.7, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_disabled"]
+bg_color = Color(0.3, 0.3, 0.3, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="Main" type="Node"]
+
+[node name="GameManager" type="Node" parent="."]
+script = ExtResource("1_abc123")
+
+[node name="GameHUD" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_def456")
+
+[node name="MainContainer" type="VBoxContainer" parent="GameHUD"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
+
+[node name="CultivationDisplay" type="Control" parent="GameHUD/MainContainer"]
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("3_ghi789")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="GameHUD/MainContainer/CultivationDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 10
+
+[node name="CultivationLabel" type="Label" parent="GameHUD/MainContainer/CultivationDisplay/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "修为: 0 / 100"
+horizontal_alignment = 1
+
+[node name="ProductionLabel" type="Label" parent="GameHUD/MainContainer/CultivationDisplay/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "产出: 1.0/秒"
+horizontal_alignment = 1
+
+[node name="RealmLabel" type="Label" parent="GameHUD/MainContainer/CultivationDisplay/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "境界: 奠基期初期"
+horizontal_alignment = 1
+
+[node name="ProgressBar" type="ProgressBar" parent="GameHUD/MainContainer/CultivationDisplay/VBoxContainer"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+max_value = 100.0
+step = 0.1
+value = 0.0
+
+[node name="ButtonContainer" type="HBoxContainer" parent="GameHUD/MainContainer/CultivationDisplay/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="CultivateButton" type="Button" parent="GameHUD/MainContainer/CultivationDisplay/VBoxContainer/ButtonContainer"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_disabled")
+text = "修炼"
+
+[node name="BreakthroughButton" type="Button" parent="GameHUD/MainContainer/CultivationDisplay/VBoxContainer/ButtonContainer"]
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBoxFlat_button")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_disabled")
+disabled = true
+text = "突破境界"
+
+[node name="HerbGardenDisplay" type="Control" parent="GameHUD/MainContainer"]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("5_mno345")
+
+[node name="Panel" type="Panel" parent="GameHUD/MainContainer/HerbGardenDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "灵药园"
+
+[node name="StatusLabel" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+layout_mode = 2
+text = "未解锁（筑基期解锁）"
+
+[node name="Slot1Label" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+layout_mode = 2
+text = "药槽1：未启用"
+
+[node name="Slot1Progress" type="ProgressBar" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+max_value = 100.0
+
+[node name="Slot2Label" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+layout_mode = 2
+text = "药槽2：未启用"
+
+[node name="Slot2Progress" type="ProgressBar" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+max_value = 100.0
+
+[node name="InventoryLabel" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+layout_mode = 2
+text = "库存：--"
+
+[node name="AlchemyDisplay" type="Control" parent="GameHUD/MainContainer"]
+custom_minimum_size = Vector2(0, 170)
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("6_pqr678")
+
+[node name="SpiritPetDisplay" type="Control" parent="GameHUD/MainContainer"]
+custom_minimum_size = Vector2(0, 170)
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("7_stu901")
+
+[node name="Panel" type="Panel" parent="GameHUD/MainContainer/SpiritPetDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "灵宠园"
+
+[node name="StatusLabel" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+layout_mode = 2
+text = "未解锁（灵寂期解锁）"
+
+[node name="ProgressBar" type="ProgressBar" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+max_value = 100.0
+
+[node name="ProgressLabel" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+layout_mode = 2
+text = "捕捉进度：--"
+
+[node name="BonusLabel" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+layout_mode = 2
+text = "总加成：--"
+
+[node name="PetListLabel" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "灵宠：--"
+
+[node name="Panel" type="Panel" parent="GameHUD/MainContainer/AlchemyDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="GameHUD/MainContainer/AlchemyDisplay/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "炼丹房"
+
+[node name="StatusLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+layout_mode = 2
+text = "未解锁（元婴期解锁）"
+
+[node name="RecipeLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+layout_mode = 2
+text = "丹方：--"
+
+[node name="ProgressBar" type="ProgressBar" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+max_value = 100.0
+
+[node name="ProgressLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+layout_mode = 2
+text = "进度：--"
+
+[node name="MaterialsLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+layout_mode = 2
+text = "材料：--"
+
+[node name="PillInventoryLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+layout_mode = 2
+text = "丹药库存：--"
+
+[node name="LogDisplay" type="Control" parent="GameHUD/MainContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("4_jkl012")
+
+[node name="Panel" type="Panel" parent="GameHUD/MainContainer/LogDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="LogText" type="RichTextLabel" parent="GameHUD/MainContainer/LogDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/normal_font_size = 14
+bbcode_enabled = true
+scroll_following = true
+
+[node name="ButtonContainer" type="HBoxContainer" parent="GameHUD/MainContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="SettingsButton" type="Button" parent="GameHUD/MainContainer/ButtonContainer"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+text = "设置"
+
+[node name="DebugButton" type="Button" parent="GameHUD/MainContainer/ButtonContainer"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+text = "调试"
+
+[node name="ResetButton" type="Button" parent="GameHUD/MainContainer/ButtonContainer"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+text = "重置游戏"

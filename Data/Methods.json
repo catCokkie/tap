@@ -1,0 +1,69 @@
+{
+  "methods": [
+    {
+      "id": "basic_meditation",
+      "name": "静心诀",
+      "description": "仙门入门必修功法，稳定产出修为。",
+      "rarity": "common",
+      "unlockedAt": 0,
+      "baseProduction": 5.0,
+      "upgradeCostBase": 1000,
+      "upgradeCostGrowth": 1.15,
+      "productionGrowth": 1.05,
+      "maxLevel": 100,
+      "element": "neutral"
+    },
+    {
+      "id": "nine_suns",
+      "name": "九阳真经",
+      "description": "阳属性上乘功法，修为产出更高。",
+      "rarity": "rare",
+      "unlockedAt": 1,
+      "baseProduction": 25.0,
+      "upgradeCostBase": 2000,
+      "upgradeCostGrowth": 1.15,
+      "productionGrowth": 1.05,
+      "maxLevel": 100,
+      "element": "fire"
+    },
+    {
+      "id": "sky_cold",
+      "name": "天寒诀",
+      "description": "寒系功法，修行沉稳，适合长期打磨。",
+      "rarity": "rare",
+      "unlockedAt": 1,
+      "baseProduction": 25.0,
+      "upgradeCostBase": 2000,
+      "upgradeCostGrowth": 1.15,
+      "productionGrowth": 1.05,
+      "maxLevel": 100,
+      "element": "water"
+    },
+    {
+      "id": "six_yin",
+      "name": "六阴真诠",
+      "description": "阴系高阶功法，修为爆发显著。",
+      "rarity": "epic",
+      "unlockedAt": 2,
+      "baseProduction": 50.0,
+      "upgradeCostBase": 5000,
+      "upgradeCostGrowth": 1.15,
+      "productionGrowth": 1.05,
+      "maxLevel": 100,
+      "element": "dark"
+    },
+    {
+      "id": "green_wood",
+      "name": "青木心法",
+      "description": "木系上乘功法，生生不息，持续增益强。",
+      "rarity": "epic",
+      "unlockedAt": 2,
+      "baseProduction": 75.0,
+      "upgradeCostBase": 5000,
+      "upgradeCostGrowth": 1.15,
+      "productionGrowth": 1.05,
+      "maxLevel": 100,
+      "element": "wood"
+    }
+  ]
+}

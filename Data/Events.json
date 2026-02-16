@@ -1,0 +1,93 @@
+{
+  "events": [
+    {
+      "id": "event_001",
+      "type": "cultivation",
+      "title": "灵气涌动",
+      "description": "你在修炼中感受到一缕天地灵气，心境澄明。",
+      "minRealm": 0,
+      "weight": 10,
+      "rewards": {
+        "cultivation": 10
+      }
+    },
+    {
+      "id": "event_002",
+      "type": "cultivation",
+      "title": "灵狐送宝",
+      "description": "一只灵狐路过，留下了一枚温润灵石。",
+      "minRealm": 0,
+      "weight": 5,
+      "rewards": {
+        "cultivation": 20
+      }
+    },
+    {
+      "id": "event_003",
+      "type": "cultivation",
+      "title": "百年灵芝",
+      "description": "你偶得百年灵芝，炼化后修为大增。",
+      "minRealm": 0,
+      "weight": 3,
+      "rewards": {
+        "cultivation": 50
+      }
+    },
+    {
+      "id": "event_004",
+      "type": "cultivation",
+      "title": "镇压心魔",
+      "description": "闭关时心魔来袭，你稳住神识成功化解。",
+      "minRealm": 1,
+      "weight": 5,
+      "rewards": {
+        "cultivation": 30
+      }
+    },
+    {
+      "id": "event_005",
+      "type": "cultivation",
+      "title": "同门切磋",
+      "description": "与同门短暂论道，所得心得让你修为稳步提升。",
+      "minRealm": 0,
+      "weight": 8,
+      "rewards": {
+        "cultivation": 15
+      }
+    },
+    {
+      "id": "event_006",
+      "type": "cultivation",
+      "title": "天象异动",
+      "description": "天地异象短暂显现，你顺势引气入体。",
+      "minRealm": 2,
+      "weight": 3,
+      "rewards": {
+        "cultivation": 100
+      }
+    },
+    {
+      "id": "event_007",
+      "type": "cultivation",
+      "title": "古洞奇遇",
+      "description": "你发现前人洞府残卷，隐约可见九阳运转之法。",
+      "minRealm": 1,
+      "weight": 2,
+      "rewards": {
+        "cultivation": 80,
+        "unlockMethod": "nine_suns"
+      }
+    },
+    {
+      "id": "event_008",
+      "type": "cultivation",
+      "title": "散仙指路",
+      "description": "一位路过散仙点拨你几句，顿时豁然开朗。",
+      "minRealm": 2,
+      "weight": 2,
+      "rewards": {
+        "cultivation": 200
+      }
+    }
+  ]
+}
