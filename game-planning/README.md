@@ -14,6 +14,7 @@
 |------|------|
 | **[GameDesign.md](./GameDesign.md)** | 统一设计文档（玩法/系统/数值/技术口径） |
 | **[ExecutionPlan.md](./ExecutionPlan.md)** | 统一执行文档（任务/进度/验收/风险） |
+| **[TODO.md](./TODO.md)** | 日常待办看板（短周期任务勾选） |
 | **[辅助系统设计索引.md](./systems/辅助系统设计索引.md)** | 灵药/灵宠/炼丹/炼器独立设计文档入口 |
 | **[GameDesign-Archive-v1.0.md](./GameDesign-Archive-v1.0.md)** | 历史归档（只读，不再维护） |
 
@@ -42,9 +43,10 @@
 
 ### 阅读顺序
 1. 先读 [GameDesign.md](./GameDesign.md) 了解完整设计口径
-2. 再读 [ExecutionPlan.md](./ExecutionPlan.md) 查看当前执行任务
-3. 需要做系统细化时查看 [辅助系统设计索引.md](./systems/辅助系统设计索引.md)
-4. 需要追溯旧方案时查看 [GameDesign-Archive-v1.0.md](./GameDesign-Archive-v1.0.md)
+2. 再读 [ExecutionPlan.md](./ExecutionPlan.md) 查看阶段目标
+3. 日常开发前先看 [TODO.md](./TODO.md) 确认待办
+4. 需要做系统细化时查看 [辅助系统设计索引.md](./systems/辅助系统设计索引.md)
+5. 需要追溯旧方案时查看 [GameDesign-Archive-v1.0.md](./GameDesign-Archive-v1.0.md)
 
 ### 立即开始开发
 ```bash
@@ -72,6 +74,7 @@ game-planning/
 ├── README.md
 ├── GameDesign.md
 ├── ExecutionPlan.md
+├── TODO.md
 ├── systems/
 │   ├── 辅助系统设计索引.md
 │   ├── 灵药园系统设计.md

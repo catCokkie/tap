@@ -1,0 +1,30 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tap", "tap.csproj", "{7521FB05-8756-FE3F-B98A-A3E8F88ADFCE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tap.Tests", "tap.Tests\tap.Tests.csproj", "{20B13AA4-D9EC-4009-9968-79BC41C5FDA9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7521FB05-8756-FE3F-B98A-A3E8F88ADFCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7521FB05-8756-FE3F-B98A-A3E8F88ADFCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7521FB05-8756-FE3F-B98A-A3E8F88ADFCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7521FB05-8756-FE3F-B98A-A3E8F88ADFCE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{20B13AA4-D9EC-4009-9968-79BC41C5FDA9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20B13AA4-D9EC-4009-9968-79BC41C5FDA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20B13AA4-D9EC-4009-9968-79BC41C5FDA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20B13AA4-D9EC-4009-9968-79BC41C5FDA9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9B3A9632-EB6D-4814-96F7-388EF26AADEF}
+	EndGlobalSection
+EndGlobal

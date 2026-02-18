@@ -39,6 +39,7 @@ namespace ImmortalIdle
             }
 
             decimal productionRate = state.CalculateProductionRate();
+            productionRate *= state.GetEffectiveDebugProgressMultiplier();
             
             // 计算这段时间产生的修为
             _accumulatedProduction += productionRate * (decimal)delta;

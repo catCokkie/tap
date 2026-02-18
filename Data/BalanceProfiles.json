@@ -1,0 +1,52 @@
+{
+  "profiles": [
+    {
+      "id": "default",
+      "name": "Default Baseline",
+      "description": "Live baseline profile. Target first rebirth around 60h.",
+      "sortOrder": 0,
+      "inputMinuteCap": 300,
+      "inputConversionRate": 1.0,
+      "rebirthCapBonusPerRun": 30,
+      "rebirthRateBonusPerRun": 0.1,
+      "breakthroughRequirementScale": 1.0,
+      "autoAllocationMain": 0.6,
+      "autoAllocationHerb": 0.2,
+      "autoAllocationPet": 0.1,
+      "autoAllocationAlchemy": 0.1,
+      "autoAllocationCraft": 0.0
+    },
+    {
+      "id": "fast_stage",
+      "name": "Fast Validation",
+      "description": "For quick loop validation with lower breakthrough requirements.",
+      "sortOrder": 1,
+      "inputMinuteCap": 360,
+      "inputConversionRate": 1.15,
+      "rebirthCapBonusPerRun": 36,
+      "rebirthRateBonusPerRun": 0.12,
+      "breakthroughRequirementScale": 0.75,
+      "autoAllocationMain": 0.62,
+      "autoAllocationHerb": 0.18,
+      "autoAllocationPet": 0.1,
+      "autoAllocationAlchemy": 0.1,
+      "autoAllocationCraft": 0.0
+    },
+    {
+      "id": "slow_stage",
+      "name": "Slow Validation",
+      "description": "For stress testing long-term progression pressure.",
+      "sortOrder": 2,
+      "inputMinuteCap": 260,
+      "inputConversionRate": 0.9,
+      "rebirthCapBonusPerRun": 24,
+      "rebirthRateBonusPerRun": 0.08,
+      "breakthroughRequirementScale": 1.25,
+      "autoAllocationMain": 0.58,
+      "autoAllocationHerb": 0.22,
+      "autoAllocationPet": 0.1,
+      "autoAllocationAlchemy": 0.1,
+      "autoAllocationCraft": 0.0
+    }
+  ]
+}

@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 namespace ImmortalIdle
 {
     /// <summary>
-    /// 娓告垙鐘舵€佸揩鐓?- 鍖呭惈鎵€鏈夐渶瑕佹寔涔呭寲鐨勬暟鎹?
+/// 说明。
     /// </summary>
     public class GameState
     {
@@ -52,32 +52,43 @@ namespace ImmortalIdle
             public long AcquiredAt { get; set; }
         }
 
-        // 鍩虹淇℃伅
+// 说明。
         public long CreatedTime { get; set; }
         public long LastSaveTime { get; set; }
+        public long LastRebirthTime { get; set; }
         
-        // 鐜╁淇℃伅
-        public string PlayerName { get; set; } = "澶栭棬寮熷瓙";
+// 说明。
+        public string PlayerName { get; set; } = "外门弟子";
         
-        // 淇负鏁版嵁
+// 说明。
         [JsonConverter(typeof(BigIntegerJsonConverter))]
         public BigInteger CurrentCultivation { get; set; }
         
-        // 杩涘害淇℃伅
-        public int CurrentRealmId { get; set; } // 0=濂犲熀鏈? 1=绛戝熀鏈?..
-        public int CurrentRealmLevel { get; set; } // 0=鍒濇湡, 1=涓湡, 2=鍚庢湡, 3=鍦嗘弧
+// 说明。
+        public int CurrentRealmId { get; set; } // 说明。
+        public int CurrentRealmLevel { get; set; } // 说明。
         public int PrestigeCount { get; set; }
         
-        // 缁熻
+// 说明。
         public BigInteger TotalCultivationEarned { get; set; }
         public int TotalClicks { get; set; }
         public long TotalPlayTime { get; set; } // 绉?
-        // 杈撳叆椹卞姩鍙傛暟
+// 说明。
         public int InputMinuteCap { get; set; } = 300;
         public decimal InputConversionRate { get; set; } = 1.0m;
         public bool EnablePassiveCultivation { get; set; } = false;
         public int RebirthCapBonusPerRun { get; set; } = 30;
         public decimal RebirthRateBonusPerRun { get; set; } = 0.10m;
+        public int RebirthSpiritMarks { get; set; } = 0;
+        public int RebirthDestinyShards { get; set; } = 0;
+        public decimal DebugProgressMultiplier { get; set; } = 1.0m;
+        public string ActiveBalanceProfileId { get; set; } = "default";
+        public decimal BreakthroughRequirementScale { get; set; } = 1.0m;
+        public decimal AutoAllocationMain { get; set; } = 0.60m;
+        public decimal AutoAllocationHerb { get; set; } = 0.20m;
+        public decimal AutoAllocationPet { get; set; } = 0.10m;
+        public decimal AutoAllocationAlchemy { get; set; } = 0.10m;
+        public decimal AutoAllocationCraft { get; set; } = 0.00m;
 
         // 输入分配策略
         public bool UseManualAllocation { get; set; } = false;
@@ -106,10 +117,17 @@ namespace ImmortalIdle
         public decimal AlchemyPool { get; set; }
         public decimal CraftPool { get; set; }
 
+        // 炼器系统状态
+        public bool CraftAutoEnabled { get; set; } = true;
+        public string ActiveCraftRecipeId { get; set; } = GameBalanceConfig.DefaultCraftRecipeId;
+        public decimal CraftProgress { get; set; }
+        public int CraftRefineLevel { get; set; }
+        public int CraftRealmRefineLevel { get; set; }
+
         // 灵宠园状态
         public bool SpiritPetAutoEnabled { get; set; } = true;
         public decimal SpiritPetProgress { get; set; }
-        public decimal SpiritPetCaptureRequirement { get; set; } = 120m;
+        public decimal SpiritPetCaptureRequirement { get; set; } = GameBalanceConfig.InitialSpiritPetCaptureRequirement;
         public List<SpiritPetState> SpiritPets { get; set; } = new();
 
         // 灵药园状态
@@ -119,7 +137,7 @@ namespace ImmortalIdle
 
         // 炼丹系统状态
         public bool AlchemyAutoEnabled { get; set; } = true;
-        public string ActiveAlchemyRecipeId { get; set; } = "ningqi_pill_recipe";
+        public string ActiveAlchemyRecipeId { get; set; } = GameBalanceConfig.DefaultAlchemyRecipeId;
         public decimal AlchemyProgress { get; set; }
         public bool AutoUseNingqiPill { get; set; } = true;
         public decimal NingqiPillConversionBonus { get; set; } = 0.20m;
@@ -137,7 +155,7 @@ namespace ImmortalIdle
         public List<string> UnlockedMethods { get; set; } = new();
         public List<string> CollectedEvents { get; set; } = new();
         
-        // 鍔熸硶绛夌骇
+// 说明。
         public Dictionary<string, int> MethodLevels { get; set; } = new();
         
         public GameState()
@@ -153,16 +171,16 @@ namespace ImmortalIdle
         }
         
         /// <summary>
-        /// 璁＄畻鎬讳骇鍑洪€熺巼锛堟瘡绉掍慨涓猴級
+/// 说明。
         /// </summary>
         public decimal CalculateProductionRate()
         {
-            decimal baseRate = 1.0m; // 鍩虹1鐐?绉?
+            decimal baseRate = 1.0m; // 说明。
             
-            // 鏍规嵁褰撳墠澧冪晫澧炲姞鍩虹閫熺巼
+// 说明。
             baseRate += CurrentRealmId * 0.5m;
             
-            // 鍔熸硶鍔犳垚
+// 说明。
             foreach (var methodId in UnlockedMethods)
             {
                 if (MethodLevels.TryGetValue(methodId, out int level))
@@ -171,14 +189,14 @@ namespace ImmortalIdle
                 }
             }
             
-            // 椋炲崌鍔犳垚
+// 说明。
             baseRate *= (1 + PrestigeCount * 0.1m);
             
             return baseRate;
         }
 
         /// <summary>
-        /// 鑾峰彇杞笘鍔犳垚鍚庣殑姣忓垎閽熻緭鍏ヤ笂闄?        /// </summary>
+/// 说明。
         public int GetEffectiveInputMinuteCap()
         {
             int cap = InputMinuteCap + PrestigeCount * RebirthCapBonusPerRun;
@@ -187,16 +205,37 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 鑾峰彇杞笘鍔犳垚鍚庣殑杈撳叆杞寲鐜?        /// </summary>
+/// 说明。
         public decimal GetEffectiveInputConversionRate()
         {
             decimal baseRate = InputConversionRate * (1m + PrestigeCount * RebirthRateBonusPerRun);
             baseRate *= (1m + GetSpiritPetInputRateBonus());
+            baseRate *= (1m + GetCraftInputRateBonus());
             if (NingqiPillRemainingSeconds > 0)
             {
                 baseRate *= (1m + NingqiPillConversionBonus);
             }
             return baseRate;
+        }
+
+        public decimal GetCraftInputRateBonus()
+        {
+            decimal bonus = CraftRefineLevel * 0.01m;
+            return Math.Clamp(bonus, 0m, 0.30m);
+        }
+
+        public decimal GetCraftBreakthroughReductionBonus()
+        {
+            decimal bonus = CraftRealmRefineLevel * 0.01m;
+            return Math.Clamp(bonus, 0m, 0.25m);
+        }
+
+        /// <summary>
+        /// 调试倍率（用于快速推进调试进度），最低1倍，最高100倍。
+        /// </summary>
+        public decimal GetEffectiveDebugProgressMultiplier()
+        {
+            return Math.Clamp(DebugProgressMultiplier, 1.0m, 100.0m);
         }
         
         private decimal GetMethodProduction(string methodId, int level)
@@ -214,28 +253,32 @@ namespace ImmortalIdle
         }
         
         /// <summary>
-        /// 鑾峰彇褰撳墠澧冪晫鍚嶇О
+/// 说明。
         /// </summary>
         public string GetCurrentRealmName()
         {
             string[] realms = { "炼气期", "筑基期", "灵寂期", "金丹期", "元婴期", "度劫期", "分神期" };
-            string[] levels = { "鍒濇湡", "涓湡", "鍚庢湡", "鍦嗘弧" };
+            string[] levels = { "初期", "中期", "后期", "圆满" };
             
             if (CurrentRealmId < realms.Length)
             {
                 string realmName = realms[CurrentRealmId];
-                string levelName = CurrentRealmLevel < levels.Length ? levels[CurrentRealmLevel] : "鍦嗘弧";
+                string levelName = CurrentRealmLevel < levels.Length ? levels[CurrentRealmLevel] : "圆满";
                 return $"{realmName}{levelName}";
             }
-            return "鏈煡澧冪晫";
+            return "未知境界";
         }
         
         /// <summary>
-        /// 鑾峰彇绐佺牬鎵€闇€淇负
+/// 说明。
         /// </summary>
         public BigInteger GetBreakthroughRequirement()
         {
             BigInteger baseReq = GetBaseBreakthroughRequirement();
+            if (GetCraftBreakthroughReductionBonus() > 0m)
+            {
+                baseReq = ApplyReduction(baseReq, GetCraftBreakthroughReductionBonus());
+            }
 
             if (PojingPillRemainingSeconds > 0)
             {
@@ -255,7 +298,7 @@ namespace ImmortalIdle
                 return false;
             }
 
-            BigInteger baseRequirement = GetBaseBreakthroughRequirement();
+            BigInteger baseRequirement = GetBreakthroughRequirement();
             if (CurrentCultivation >= baseRequirement)
             {
                 return false;
@@ -266,7 +309,7 @@ namespace ImmortalIdle
         }
         
         /// <summary>
-        /// 妫€鏌ユ槸鍚﹀彲浠ョ獊鐮?
+/// 说明。
         /// </summary>
         public bool CanBreakthrough()
         {
@@ -274,16 +317,21 @@ namespace ImmortalIdle
         }
         
         /// <summary>
-        /// 鎵ц绐佺牬
+/// 说明。
         /// </summary>
         public bool TryBreakthrough()
         {
             if (!CanBreakthrough()) return false;
+
+            // 扣除本次突破需求，保留剩余修为进度。
+            BigInteger requirement = GetBreakthroughRequirement();
+            CurrentCultivation -= requirement;
+            if (CurrentCultivation < 0)
+            {
+                CurrentCultivation = 0;
+            }
             
-            // 娑堣€椾慨涓?
-            CurrentCultivation = 0;
-            
-            // 鎻愬崌澧冪晫
+// 说明。
             CurrentRealmLevel++;
             if (CurrentRealmLevel >= 4)
             {
@@ -295,7 +343,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 褰撳墠鏄惁鍙Е鍙戣浆涓栵紙鍒嗙鏈熷渾婊′笖鍙啀娆＄獊鐮达級
+/// 说明。
         /// </summary>
         public bool CanRebirth()
         {
@@ -305,7 +353,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 鎵ц杞笘锛氶噸缃眬鍐呰繘搴﹀苟淇濈暀杞笘娆℃暟鐢ㄤ簬鍏ㄥ眬鍔犳垚
+/// 说明。
         /// </summary>
         public bool TryRebirth()
         {
@@ -314,7 +362,98 @@ namespace ImmortalIdle
                 return false;
             }
 
+            RebirthSpiritMarks += GetRebirthSpiritMarksReward();
+            RebirthDestinyShards += GetRebirthDestinyShardsReward();
             PrestigeCount++;
+            LastRebirthTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            ResetRunProgressForRebirth();
+            return true;
+        }
+
+        public int GetRebirthSpiritMarksReward()
+        {
+            return 100 + PrestigeCount * 20;
+        }
+
+        public int GetRebirthDestinyShardsReward()
+        {
+            return 20 + PrestigeCount * 5;
+        }
+
+        public long GetSecondsSinceLastRebirth()
+        {
+            if (LastRebirthTime <= 0)
+            {
+                return -1;
+            }
+
+            long elapsed = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - LastRebirthTime;
+            return Math.Max(0, elapsed);
+        }
+
+        public string GetPostRebirthGuideText()
+        {
+            if (PrestigeCount <= 0 || LastRebirthTime <= 0)
+            {
+                return "";
+            }
+
+            const long guideWindow = 2 * 60 * 60;
+            long elapsed = GetSecondsSinceLastRebirth();
+            if (elapsed < 0 || elapsed >= guideWindow)
+            {
+                return "";
+            }
+
+            long remain = guideWindow - elapsed;
+            string stageGoal = elapsed switch
+            {
+                < 15 * 60 => "前2小时目标：先稳住输入节奏，保持有效输入持续增长。",
+                < 45 * 60 => "前2小时目标：尽快到筑基，打通灵药与炼丹循环。",
+                < 90 * 60 => "前2小时目标：冲到灵寂并开启灵宠，保持主修炼为核心。",
+                _ => "前2小时目标：为元婴前冲刺储备丹药与关键材料。"
+            };
+
+            return $"{stageGoal}（剩余 {FormatGuideDuration(remain)}）";
+        }
+
+        public string GetStageGoalText()
+        {
+            string nextUnlock = CurrentRealmId switch
+            {
+                0 => "目标：突破到筑基，解锁灵药园与炼丹房。",
+                1 => "目标：突破到灵寂，解锁灵宠园。",
+                2 => "目标：突破到金丹，强化资源循环效率。",
+                3 => "目标：突破到元婴，解锁炼器坊。",
+                4 => "目标：推进度劫阶段，准备高阶资源。",
+                5 => "目标：冲击分神圆满，准备转世。",
+                _ => CanRebirth()
+                    ? "目标：可转世，建议先确认本轮资源后再突破。"
+                    : "目标：达到分神圆满并满足转世条件。"
+            };
+
+            if (CanBreakthrough())
+            {
+                return nextUnlock + "（当前已可突破）";
+            }
+
+            return nextUnlock;
+        }
+
+        private static string FormatGuideDuration(long seconds)
+        {
+            if (seconds < 60)
+            {
+                return $"{seconds}秒";
+            }
+
+            long min = seconds / 60;
+            long sec = seconds % 60;
+            return sec == 0 ? $"{min}分钟" : $"{min}分{sec}秒";
+        }
+
+        private void ResetRunProgressForRebirth()
+        {
             CurrentCultivation = 0;
             CurrentRealmId = 0;
             CurrentRealmLevel = 0;
@@ -326,37 +465,82 @@ namespace ImmortalIdle
             AlchemyPool = 0m;
             CraftPool = 0m;
 
-            return true;
+            TotalAllocatedMain = 0m;
+            TotalAllocatedHerb = 0m;
+            TotalAllocatedPet = 0m;
+            TotalAllocatedAlchemy = 0m;
+            TotalAllocatedCraft = 0m;
+
+            HerbGardenLevel = 1;
+            ActiveHerbStrategy = "balanced";
+            HerbSlots.Clear();
+
+            SpiritPetAutoEnabled = true;
+            SpiritPetProgress = 0m;
+            SpiritPetCaptureRequirement = GameBalanceConfig.InitialSpiritPetCaptureRequirement;
+            SpiritPets.Clear();
+
+            AlchemyAutoEnabled = true;
+            ActiveAlchemyRecipeId = GameBalanceConfig.DefaultAlchemyRecipeId;
+            AlchemyProgress = 0m;
+            NingqiPillRemainingSeconds = 0;
+            PojingPillRemainingSeconds = 0;
+
+            CraftAutoEnabled = true;
+            ActiveCraftRecipeId = GameBalanceConfig.DefaultCraftRecipeId;
+            CraftProgress = 0m;
+            CraftRefineLevel = 0;
+            CraftRealmRefineLevel = 0;
+
+            Inventory.Clear();
+            EnsureInventoryInitialized();
+
+            UnlockedMethods = new List<string> { "basic_meditation" };
+            MethodLevels = new Dictionary<string, int> { { "basic_meditation", 1 } };
+            CollectedEvents.Clear();
         }
 
         /// <summary>
-        /// 鑾峰彇褰撳墠杈撳叆鍒嗛厤鏉冮噸銆傜瓚鍩哄墠寮哄埗100%涓讳慨鐐硷紝绛戝熀鍚庡彲閫夋墜鍔ㄥ垎閰嶃€?        /// </summary>
+/// 说明。
         public InputAllocationWeights GetInputAllocationWeights()
         {
-            if (CurrentRealmId < 1)
+            if (CurrentRealmId < GameBalanceConfig.AlchemyUnlockRealmId)
             {
                 return new InputAllocationWeights { Main = 1m };
             }
 
             if (!UseManualAllocation)
             {
-                // 自动模板：按阶段逐步开放更多系统，但保持主修炼为核心
-                return CurrentRealmId switch
+                InputAllocationWeights auto = new InputAllocationWeights
                 {
-                    1 => new InputAllocationWeights { Main = 0.60m, Herb = 0.40m },
-                    2 => new InputAllocationWeights { Main = 0.60m, Herb = 0.25m, Pet = 0.15m },
-                    3 => new InputAllocationWeights { Main = 0.60m, Herb = 0.20m, Pet = 0.10m, Alchemy = 0.10m },
-                    _ => new InputAllocationWeights { Main = 0.60m, Herb = 0.15m, Pet = 0.10m, Alchemy = 0.10m, Craft = 0.05m }
+                    Main = AutoAllocationMain,
+                    Herb = CurrentRealmId >= GameBalanceConfig.HerbUnlockRealmId ? AutoAllocationHerb : 0m,
+                    Pet = CurrentRealmId >= GameBalanceConfig.SpiritPetUnlockRealmId ? AutoAllocationPet : 0m,
+                    Alchemy = CurrentRealmId >= GameBalanceConfig.AlchemyUnlockRealmId ? AutoAllocationAlchemy : 0m,
+                    Craft = CurrentRealmId >= GameBalanceConfig.CraftUnlockRealmId ? AutoAllocationCraft : 0m
                 };
+
+                decimal autoSum = auto.Main + auto.Herb + auto.Pet + auto.Alchemy + auto.Craft;
+                if (autoSum <= 0m)
+                {
+                    return new InputAllocationWeights { Main = 1m };
+                }
+
+                auto.Main /= autoSum;
+                auto.Herb /= autoSum;
+                auto.Pet /= autoSum;
+                auto.Alchemy /= autoSum;
+                auto.Craft /= autoSum;
+                return auto;
             }
 
             InputAllocationWeights manual = new InputAllocationWeights
             {
                 Main = ClampNonNegative(ManualAllocationMain),
-                Herb = CurrentRealmId >= 1 ? ClampNonNegative(ManualAllocationHerb) : 0m,
-                Pet = CurrentRealmId >= 2 ? ClampNonNegative(ManualAllocationPet) : 0m,
-                Alchemy = CurrentRealmId >= 3 ? ClampNonNegative(ManualAllocationAlchemy) : 0m,
-                Craft = CurrentRealmId >= 4 ? ClampNonNegative(ManualAllocationCraft) : 0m
+                Herb = CurrentRealmId >= GameBalanceConfig.HerbUnlockRealmId ? ClampNonNegative(ManualAllocationHerb) : 0m,
+                Pet = CurrentRealmId >= GameBalanceConfig.SpiritPetUnlockRealmId ? ClampNonNegative(ManualAllocationPet) : 0m,
+                Alchemy = CurrentRealmId >= GameBalanceConfig.AlchemyUnlockRealmId ? ClampNonNegative(ManualAllocationAlchemy) : 0m,
+                Craft = CurrentRealmId >= GameBalanceConfig.CraftUnlockRealmId ? ClampNonNegative(ManualAllocationCraft) : 0m
             };
 
             decimal sum = manual.Main + manual.Herb + manual.Pet + manual.Alchemy + manual.Craft;
@@ -384,20 +568,66 @@ namespace ImmortalIdle
             return value < 0m ? 0m : value;
         }
 
+        public bool ApplyBalanceProfile(BalanceProfileConfig profile)
+        {
+            if (profile == null)
+            {
+                return false;
+            }
+
+            ActiveBalanceProfileId = profile.Id;
+            InputMinuteCap = Math.Max(1, profile.InputMinuteCap);
+            InputConversionRate = Math.Max(0.01m, profile.InputConversionRate);
+            RebirthCapBonusPerRun = Math.Max(0, profile.RebirthCapBonusPerRun);
+            RebirthRateBonusPerRun = Math.Max(0m, profile.RebirthRateBonusPerRun);
+            BreakthroughRequirementScale = Math.Clamp(profile.BreakthroughRequirementScale, 0.2m, 10m);
+
+            AutoAllocationMain = Math.Max(0m, profile.AutoAllocationMain);
+            AutoAllocationHerb = Math.Max(0m, profile.AutoAllocationHerb);
+            AutoAllocationPet = Math.Max(0m, profile.AutoAllocationPet);
+            AutoAllocationAlchemy = Math.Max(0m, profile.AutoAllocationAlchemy);
+            AutoAllocationCraft = Math.Max(0m, profile.AutoAllocationCraft);
+
+            NormalizeAutoAllocation();
+            return true;
+        }
+
+        private void NormalizeAutoAllocation()
+        {
+            decimal sum = AutoAllocationMain + AutoAllocationHerb + AutoAllocationPet + AutoAllocationAlchemy + AutoAllocationCraft;
+            if (sum <= 0m)
+            {
+                AutoAllocationMain = 1m;
+                AutoAllocationHerb = 0m;
+                AutoAllocationPet = 0m;
+                AutoAllocationAlchemy = 0m;
+                AutoAllocationCraft = 0m;
+                return;
+            }
+
+            AutoAllocationMain /= sum;
+            AutoAllocationHerb /= sum;
+            AutoAllocationPet /= sum;
+            AutoAllocationAlchemy /= sum;
+            AutoAllocationCraft /= sum;
+        }
+
         /// <summary>
-        /// 纭繚鐏佃嵂鍥姸鎬佸畬鎴愬垵濮嬪寲锛堜粎鍦ㄩ娆¤В閿佸悗璋冪敤锛?        /// </summary>
+/// 说明。
         public void EnsureHerbGardenInitialized()
         {
             EnsureInventoryInitialized();
 
             if (HerbSlots.Count == 0)
             {
+                HerbRuleConfig slot0Rule = ConfigLoader.GetHerbRule("ningqi_grass");
+                HerbRuleConfig slot1Rule = ConfigLoader.GetHerbRule("qingling_leaf");
                 HerbSlots.Add(new HerbSlotState
                 {
                     SlotId = 0,
                     HerbId = "ningqi_grass",
                     GrowthProgress = 0m,
-                    GrowthRequirement = 100m,
+                    GrowthRequirement = slot0Rule?.GrowthRequirement ?? 100m,
                     AutoHarvestEnabled = true
                 });
                 HerbSlots.Add(new HerbSlotState
@@ -405,14 +635,14 @@ namespace ImmortalIdle
                     SlotId = 1,
                     HerbId = "qingling_leaf",
                     GrowthProgress = 0m,
-                    GrowthRequirement = 100m,
+                    GrowthRequirement = slot1Rule?.GrowthRequirement ?? 100m,
                     AutoHarvestEnabled = true
                 });
             }
         }
 
         /// <summary>
-        /// 鍒濆鍖栧簱瀛樺熀绾挎暟鎹?        /// </summary>
+/// 说明。
         public void EnsureInventoryInitialized()
         {
             EnsureInventoryEntry("ningqi_grass", "herb");
@@ -425,11 +655,15 @@ namespace ImmortalIdle
             EnsureInventoryEntry("ningqi_pill", "pill");
             EnsureInventoryEntry("pojing_pill", "pill");
             EnsureInventoryEntry("pet_essence", "pet_material");
+            EnsureInventoryEntry("craft_shard", "craft_material");
+            EnsureInventoryEntry("craft_core", "craft_material");
+            EnsureInventoryEntry("craft_realm_shard", "craft_material");
+            EnsureInventoryEntry("craft_realm_core", "craft_material");
         }
 
         public int GetSpiritPetCapacity()
         {
-            if (CurrentRealmId < 2)
+            if (CurrentRealmId < GameBalanceConfig.SpiritPetUnlockRealmId)
             {
                 return 0;
             }
@@ -516,7 +750,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 鑾峰彇搴撳瓨鏁伴噺锛堜笉瀛樺湪鍒欒繑鍥?锛?        /// </summary>
+/// 说明。
         public decimal GetInventoryQuantity(string itemId)
         {
             if (Inventory.TryGetValue(itemId, out InventoryEntry entry))
@@ -528,7 +762,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 澧炲姞搴撳瓨鏁伴噺锛堟敮鎸佽礋鏁帮紝鏈€浣庝负0锛?        /// </summary>
+/// 说明。
         public decimal AddInventoryItem(string itemId, string category, decimal delta)
         {
             EnsureInventoryEntry(itemId, category);
@@ -539,7 +773,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 灏濊瘯鎵ｉ櫎搴撳瓨锛堟暟閲忎笉瓒虫椂涓嶆墸闄わ紝杩斿洖false锛?        /// </summary>
+/// 说明。
         public bool TryConsumeInventory(string itemId, decimal amount)
         {
             if (amount <= 0m)
@@ -558,7 +792,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 鏈嶇敤鍑濇皵涓瑰苟鍒锋柊鎸佺画鏃堕棿
+/// 说明。
         /// </summary>
         public bool TryConsumeNingqiPill()
         {
@@ -572,7 +806,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 鏈嶇敤鐮村涓瑰苟鍒锋柊鎸佺画鏃堕棿
+/// 说明。
         /// </summary>
         public bool TryConsumePojingPill()
         {
@@ -586,7 +820,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 鏇存柊闄愭椂鏁堟灉鍓╀綑鏃堕棿
+/// 说明。
         /// </summary>
         public void UpdateTimedEffects(double delta)
         {
@@ -602,7 +836,7 @@ namespace ImmortalIdle
         }
 
         /// <summary>
-        /// 鎸夊垎绫昏幏鍙栧簱瀛樺揩鐓?        /// </summary>
+/// 说明。
         public Dictionary<string, decimal> GetInventoryByCategory(string category)
         {
             return Inventory
@@ -633,6 +867,11 @@ namespace ImmortalIdle
         private BigInteger ApplyBreakthroughRequirementReduction(BigInteger requirement)
         {
             decimal reduction = Math.Clamp(PojingPillRequirementReduction, 0m, 0.95m);
+            return ApplyReduction(requirement, reduction);
+        }
+
+        private static BigInteger ApplyReduction(BigInteger requirement, decimal reduction)
+        {
             int perMille = (int)Math.Round((double)((1m - reduction) * 1000m));
             if (perMille < 1) perMille = 1;
             return requirement * perMille / 1000;
@@ -640,19 +879,27 @@ namespace ImmortalIdle
 
         private BigInteger GetBaseBreakthroughRequirement()
         {
+            // 60h 首转基线：按输入驱动节奏重标定，避免首轮过长。
             BigInteger baseReq = CurrentRealmId switch
             {
-                0 => 100,
-                1 => 500,
-                2 => 2000,
-                3 => 10000,
-                4 => 50000,
-                5 => 200000,
-                6 => 1000000,
-                _ => BigInteger.Parse("10000000")
+                0 => 2,
+                1 => 10,
+                2 => 40,
+                3 => 200,
+                4 => 1000,
+                5 => 4000,
+                6 => 20000,
+                _ => BigInteger.Parse("50000")
             };
 
-            return baseReq * (CurrentRealmLevel + 1);
+            BigInteger required = baseReq * (CurrentRealmLevel + 1);
+            int scalePerMille = (int)Math.Round((double)(Math.Clamp(BreakthroughRequirementScale, 0.2m, 10m) * 1000m));
+            if (scalePerMille <= 0)
+            {
+                scalePerMille = 1000;
+            }
+
+            return required * scalePerMille / 1000;
         }
 
         private static decimal GetEffectivePetBonus(SpiritPetState pet)

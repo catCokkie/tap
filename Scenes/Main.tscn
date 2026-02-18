@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://c8yvxg3ulq3a"]
+[gd_scene load_steps=13 format=3 uid="uid://c8yvxg3ulq3a"]
 
 [ext_resource type="Script" path="res://Scripts/Core/GameManager.cs" id="1_abc123"]
 [ext_resource type="Script" path="res://Scripts/UI/GameHUD.cs" id="2_def456"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://Scripts/UI/HerbGardenDisplay.cs" id="5_mno345"]
 [ext_resource type="Script" path="res://Scripts/UI/AlchemyDisplay.cs" id="6_pqr678"]
 [ext_resource type="Script" path="res://Scripts/UI/SpiritPetDisplay.cs" id="7_stu901"]
+[ext_resource type="Script" path="res://Scripts/UI/CraftDisplay.cs" id="8_vwx234"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.102, 0.102, 0.102, 1)
@@ -169,25 +170,24 @@ text = "灵药园"
 layout_mode = 2
 text = "未解锁（筑基期解锁）"
 
-[node name="Slot1Label" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+[node name="ProgressLabel" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
 layout_mode = 2
-text = "药槽1：未启用"
+text = "生长进度：--"
 
-[node name="Slot1Progress" type="ProgressBar" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+[node name="ProgressBar" type="ProgressBar" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 max_value = 100.0
 
-[node name="Slot2Label" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+[node name="Line1Label" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
 layout_mode = 2
-text = "药槽2：未启用"
+text = "药槽1：--"
 
-[node name="Slot2Progress" type="ProgressBar" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
-custom_minimum_size = Vector2(0, 20)
+[node name="Line2Label" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
 layout_mode = 2
-max_value = 100.0
+text = "药槽2：--"
 
-[node name="InventoryLabel" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
+[node name="Line3Label" type="Label" parent="GameHUD/MainContainer/HerbGardenDisplay/Panel/VBox"]
 layout_mode = 2
 text = "库存：--"
 
@@ -202,6 +202,64 @@ custom_minimum_size = Vector2(0, 170)
 layout_mode = 2
 size_flags_vertical = 0
 script = ExtResource("7_stu901")
+
+[node name="CraftDisplay" type="Control" parent="GameHUD/MainContainer"]
+custom_minimum_size = Vector2(0, 170)
+layout_mode = 2
+size_flags_vertical = 0
+script = ExtResource("8_vwx234")
+
+[node name="Panel" type="Panel" parent="GameHUD/MainContainer/CraftDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="GameHUD/MainContainer/CraftDisplay/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="GameHUD/MainContainer/CraftDisplay/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "炼器坊"
+
+[node name="StatusLabel" type="Label" parent="GameHUD/MainContainer/CraftDisplay/Panel/VBox"]
+layout_mode = 2
+text = "未解锁（元婴期解锁）"
+
+[node name="ProgressBar" type="ProgressBar" parent="GameHUD/MainContainer/CraftDisplay/Panel/VBox"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+max_value = 100.0
+
+[node name="ProgressLabel" type="Label" parent="GameHUD/MainContainer/CraftDisplay/Panel/VBox"]
+layout_mode = 2
+text = "进度：--"
+
+[node name="Line1Label" type="Label" parent="GameHUD/MainContainer/CraftDisplay/Panel/VBox"]
+layout_mode = 2
+text = "图谱：--"
+
+[node name="Line2Label" type="Label" parent="GameHUD/MainContainer/CraftDisplay/Panel/VBox"]
+layout_mode = 2
+text = "库存：--"
+
+[node name="Line3Label" type="Label" parent="GameHUD/MainContainer/CraftDisplay/Panel/VBox"]
+layout_mode = 2
+text = "加成：--"
 
 [node name="Panel" type="Panel" parent="GameHUD/MainContainer/SpiritPetDisplay"]
 layout_mode = 1
@@ -243,14 +301,19 @@ max_value = 100.0
 layout_mode = 2
 text = "捕捉进度：--"
 
-[node name="BonusLabel" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+[node name="Line1Label" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
 layout_mode = 2
-text = "总加成：--"
+text = "加成：--"
 
-[node name="PetListLabel" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+[node name="Line2Label" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
 layout_mode = 2
 autowrap_mode = 3
 text = "灵宠：--"
+
+[node name="Line3Label" type="Label" parent="GameHUD/MainContainer/SpiritPetDisplay/Panel/VBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "详情：--"
 
 [node name="Panel" type="Panel" parent="GameHUD/MainContainer/AlchemyDisplay"]
 layout_mode = 1
@@ -283,7 +346,7 @@ text = "炼丹房"
 layout_mode = 2
 text = "未解锁（元婴期解锁）"
 
-[node name="RecipeLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+[node name="Line1Label" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
 layout_mode = 2
 text = "丹方：--"
 
@@ -296,13 +359,13 @@ max_value = 100.0
 layout_mode = 2
 text = "进度：--"
 
-[node name="MaterialsLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+[node name="Line2Label" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
 layout_mode = 2
 text = "材料：--"
 
-[node name="PillInventoryLabel" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
+[node name="Line3Label" type="Label" parent="GameHUD/MainContainer/AlchemyDisplay/Panel/VBox"]
 layout_mode = 2
-text = "丹药库存：--"
+text = "丹药：--"
 
 [node name="LogDisplay" type="Control" parent="GameHUD/MainContainer"]
 layout_mode = 2

@@ -1,11 +1,11 @@
-using Godot;
+﻿using Godot;
 using System;
 using System.Numerics;
 
 namespace ImmortalIdle
 {
     /// <summary>
-    /// 游戏全局管理器，负责初始化子系统与协调主流程。
+    /// 游戏全局管理器，负责初始化子系统并协调主流程。
     /// </summary>
     public partial class GameManager : Node
     {
@@ -19,6 +19,7 @@ namespace ImmortalIdle
         private HerbGardenSystem _herbGardenSystem;
         private SpiritPetSystem _spiritPetSystem;
         private AlchemySystem _alchemySystem;
+        private CraftSystem _craftSystem;
         private RealmSystem _realmSystem;
         private LogSystem _logSystem;
 
@@ -41,6 +42,7 @@ namespace ImmortalIdle
             _saveSystem = new SaveSystem();
             AddChild(_saveSystem);
             CurrentState = _saveSystem.LoadGame();
+            EnsureBalanceProfileApplied();
 
             _cultivationSystem = new CultivationSystem();
             AddChild(_cultivationSystem);
@@ -56,6 +58,9 @@ namespace ImmortalIdle
 
             _alchemySystem = new AlchemySystem();
             AddChild(_alchemySystem);
+
+            _craftSystem = new CraftSystem();
+            AddChild(_craftSystem);
 
             _realmSystem = new RealmSystem();
             AddChild(_realmSystem);
@@ -77,7 +82,7 @@ namespace ImmortalIdle
 
         public override void _ExitTree()
         {
-            _saveSystem?.SaveGame(CurrentState);
+            _saveSystem?.SaveGame(CurrentState, force: true);
             Instance = null;
         }
 
@@ -114,15 +119,28 @@ namespace ImmortalIdle
 
             if (CurrentState.CanRebirth())
             {
+                long rebirthIntervalSeconds = CurrentState.GetSecondsSinceLastRebirth();
                 int oldPrestige = CurrentState.PrestigeCount;
+                int oldSpiritMarks = CurrentState.RebirthSpiritMarks;
+                int oldDestinyShards = CurrentState.RebirthDestinyShards;
                 if (CurrentState.TryRebirth())
                 {
                     int newPrestige = CurrentState.PrestigeCount;
+                    int spiritGain = CurrentState.RebirthSpiritMarks - oldSpiritMarks;
+                    int shardGain = CurrentState.RebirthDestinyShards - oldDestinyShards;
                     EventBus.Instance.EmitRealmBreakthrough(CurrentState.CurrentRealmId, CurrentState.CurrentRealmLevel);
                     _logSystem.AddLog("breakthrough", $"转世成功，轮回次数 {oldPrestige} -> {newPrestige}");
+                    _logSystem.AddLog("system", $"转世结算：轮回灵印 +{spiritGain}，天命碎片 +{shardGain}");
                     _logSystem.AddLog(
                         "system",
                         $"转世增益：输入上限 {CurrentState.GetEffectiveInputMinuteCap()}/分钟，转化率 x{CurrentState.GetEffectiveInputConversionRate():F2}");
+                    string rebirthGuide = CurrentState.GetPostRebirthGuideText();
+                    if (!string.IsNullOrWhiteSpace(rebirthGuide))
+                    {
+                        _logSystem.AddLog("system", rebirthGuide);
+                    }
+
+                    _logSystem.AddMetric("breakthrough.rebirth_interval_sec", rebirthIntervalSeconds);
                     GD.Print($"[GameManager] 转世完成: {oldPrestige} -> {newPrestige}");
                     return true;
                 }
@@ -137,6 +155,11 @@ namespace ImmortalIdle
             string newRealm = CurrentState.GetCurrentRealmName();
             EventBus.Instance.EmitRealmBreakthrough(CurrentState.CurrentRealmId, CurrentState.CurrentRealmLevel);
             _logSystem.AddLog("breakthrough", $"突破成功，从 {oldRealm} 晋升至 {newRealm}");
+            string requirementText = CurrentState.GetBreakthroughRequirement().ToString();
+            if (requirementText.Length <= 28 && decimal.TryParse(requirementText, out decimal requirementMetric))
+            {
+                _logSystem.AddMetric("breakthrough.requirement", requirementMetric);
+            }
 
             if (CurrentState.CurrentRealmId >= 1 && !CurrentState.ManualAllocationUnlockHintShown)
             {
@@ -182,7 +205,7 @@ namespace ImmortalIdle
             }
 
             EventBus.Instance.EmitCultivationChanged(CurrentState.CurrentCultivation, bonus);
-            _logSystem.AddLog("event", $"【奇遇】{randomEvent.Title}：{randomEvent.Description}，获得修为+{bonus}");
+            _logSystem.AddLog("event", $"【奇遇】{randomEvent.Title}：{randomEvent.Description}，获得修为 {bonus}");
         }
 
         public static string FormatNumber(BigInteger number)
@@ -192,7 +215,7 @@ namespace ImmortalIdle
                 return number.ToString();
             }
 
-            string[] units = { "", "万", "亿", "万亿", "兆", "京", "垓", "秭", "穰", "沟" };
+            string[] units = { "", "万", "亿", "万亿", "京", "垓", "秭", "穰", "沟", "涧" };
             int unitIndex = 0;
             BigInteger divisor = 1;
 
@@ -227,6 +250,18 @@ namespace ImmortalIdle
 
             eventBus = new EventBus { Name = "EventBus" };
             GetTree().Root.AddChild(eventBus);
+        }
+
+        private void EnsureBalanceProfileApplied()
+        {
+            if (CurrentState == null)
+            {
+                return;
+            }
+
+            BalanceProfileConfig profile = ConfigLoader.GetBalanceProfile(CurrentState.ActiveBalanceProfileId)
+                ?? ConfigLoader.GetBalanceProfile("default");
+            CurrentState.ApplyBalanceProfile(profile);
         }
 
         private void ProcessOfflineGain()

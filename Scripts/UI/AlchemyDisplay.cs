@@ -1,153 +1,92 @@
-using Godot;
-using System.Collections.Generic;
+﻿using Godot;
+using System.Text;
 
 namespace ImmortalIdle.UI
 {
     /// <summary>
-    /// 炼丹房展示组件：显示解锁状态、当前丹方、进度、材料与丹药库存
+    /// 炼丹房展示组件（统一卡片模板）
     /// </summary>
-    public partial class AlchemyDisplay : Control
+    public partial class AlchemyDisplay : SystemCardDisplayBase
     {
-        private class RecipeView
+        protected override void OnAfterBindNodes()
         {
-            public string Id { get; set; } = "";
-            public string Name { get; set; } = "";
-            public decimal ProgressRequired { get; set; }
-            public Dictionary<string, decimal> Inputs { get; set; } = new();
-            public string OutputItemId { get; set; } = "";
+            _line1Label ??= FindNodeAny<Label>("Panel/VBox/Line1Label", "Panel/VBox/RecipeLabel");
+            _line2Label ??= FindNodeAny<Label>("Panel/VBox/Line2Label", "Panel/VBox/MaterialsLabel");
+            _line3Label ??= FindNodeAny<Label>("Panel/VBox/Line3Label", "Panel/VBox/PillInventoryLabel");
         }
 
-        private readonly Dictionary<string, RecipeView> _recipes = new()
+        protected override void RefreshDisplay()
         {
-            ["ningqi_pill_recipe"] = new RecipeView
-            {
-                Id = "ningqi_pill_recipe",
-                Name = "凝气丹",
-                ProgressRequired = 120m,
-                Inputs = new Dictionary<string, decimal>
-                {
-                    ["ningqi_grass"] = 2m,
-                    ["qingling_leaf"] = 1m
-                },
-                OutputItemId = "ningqi_pill"
-            },
-            ["pojing_pill_recipe"] = new RecipeView
-            {
-                Id = "pojing_pill_recipe",
-                Name = "破境丹",
-                ProgressRequired = 240m,
-                Inputs = new Dictionary<string, decimal>
-                {
-                    ["chiyan_fruit"] = 2m,
-                    ["hansui_flower"] = 2m
-                },
-                OutputItemId = "pojing_pill"
-            }
-        };
-
-        [Export] private Label _titleLabel;
-        [Export] private Label _statusLabel;
-        [Export] private Label _recipeLabel;
-        [Export] private ProgressBar _progressBar;
-        [Export] private Label _progressLabel;
-        [Export] private Label _materialsLabel;
-        [Export] private Label _pillInventoryLabel;
-
-        private double _updateTimer = 0;
-        private const double UPDATE_INTERVAL = 0.5;
-
-        public override void _Ready()
-        {
-            if (_titleLabel == null)
-                _titleLabel = GetNode<Label>("Panel/VBox/TitleLabel");
-            if (_statusLabel == null)
-                _statusLabel = GetNode<Label>("Panel/VBox/StatusLabel");
-            if (_recipeLabel == null)
-                _recipeLabel = GetNode<Label>("Panel/VBox/RecipeLabel");
-            if (_progressBar == null)
-                _progressBar = GetNode<ProgressBar>("Panel/VBox/ProgressBar");
-            if (_progressLabel == null)
-                _progressLabel = GetNode<Label>("Panel/VBox/ProgressLabel");
-            if (_materialsLabel == null)
-                _materialsLabel = GetNode<Label>("Panel/VBox/MaterialsLabel");
-            if (_pillInventoryLabel == null)
-                _pillInventoryLabel = GetNode<Label>("Panel/VBox/PillInventoryLabel");
-
-            UpdateDisplay();
-        }
-
-        public override void _Process(double delta)
-        {
-            _updateTimer += delta;
-            if (_updateTimer >= UPDATE_INTERVAL)
-            {
-                _updateTimer = 0;
-                UpdateDisplay();
-            }
-        }
-
-        private void UpdateDisplay()
-        {
-            var state = GameManager.Instance?.CurrentState;
+            GameState state = GameManager.Instance?.CurrentState;
             if (state == null)
             {
                 return;
             }
 
-            _titleLabel.Text = "炼丹房";
+            if (_titleLabel != null) _titleLabel.Text = "炼丹房";
 
-            if (state.CurrentRealmId < 3)
+            if (state.CurrentRealmId < GameBalanceConfig.AlchemyUnlockRealmId)
             {
-                _statusLabel.Text = "未解锁（元婴期解锁）";
-                _recipeLabel.Text = "丹方：--";
-                _progressBar.MaxValue = 100;
-                _progressBar.Value = 0;
-                _progressLabel.Text = "进度：--";
-                _materialsLabel.Text = "材料：--";
-                _pillInventoryLabel.Text = "丹药库存：--";
+                if (_statusLabel != null) _statusLabel.Text = "未解锁（筑基期解锁）";
+                if (_progressBar != null) { _progressBar.MaxValue = 100; _progressBar.Value = 0; }
+                if (_progressLabel != null) _progressLabel.Text = "进度：--";
+                if (_line1Label != null) _line1Label.Text = "丹方：--";
+                if (_line2Label != null) _line2Label.Text = "材料：--";
+                if (_line3Label != null) _line3Label.Text = "丹药：--";
                 return;
             }
 
             state.EnsureInventoryInitialized();
+            if (_statusLabel != null) _statusLabel.Text = $"已解锁 | 池 {state.AlchemyPool:F1} | 自动 {(state.AlchemyAutoEnabled ? "开" : "关")}";
 
-            _statusLabel.Text = $"已解锁 | 炼丹池：{state.AlchemyPool:F1} | 自动炼丹：{(state.AlchemyAutoEnabled ? "开启" : "关闭")}";
-
-            if (!_recipes.TryGetValue(state.ActiveAlchemyRecipeId, out RecipeView recipe))
+            AlchemyRecipeConfig recipe = ConfigLoader.GetAlchemyRecipe(state.ActiveAlchemyRecipeId)
+                ?? ConfigLoader.GetAlchemyRecipe(GameBalanceConfig.DefaultAlchemyRecipeId);
+            if (recipe == null)
             {
-                recipe = _recipes["ningqi_pill_recipe"];
+                return;
             }
 
-            _recipeLabel.Text = $"丹方：{recipe.Name}（{recipe.Id}）";
+            if (_progressBar != null)
+            {
+                _progressBar.MaxValue = (double)recipe.ProgressRequired;
+                _progressBar.Value = (double)System.Math.Min(state.AlchemyProgress, recipe.ProgressRequired);
+            }
+            if (_progressLabel != null) _progressLabel.Text = $"进度：{state.AlchemyProgress:F0}/{recipe.ProgressRequired:F0}";
 
-            double max = (double)recipe.ProgressRequired;
-            double value = (double)state.AlchemyProgress;
-            if (value > max) value = max;
+            if (_line1Label != null)
+            {
+                _line1Label.Text = $"丹方：{recipe.Name}";
+                _line1Label.TooltipText = recipe.Id;
+            }
 
-            _progressBar.MaxValue = max;
-            _progressBar.Value = value;
-            _progressLabel.Text = $"进度：{state.AlchemyProgress:F1}/{recipe.ProgressRequired:F1}";
-
-            string materialText = "材料：";
+            var materialSummary = new StringBuilder("材料：");
+            var materialDetail = new StringBuilder("材料详情：");
             bool first = true;
             foreach (var kv in recipe.Inputs)
             {
                 decimal have = state.GetInventoryQuantity(kv.Key);
-                if (!first) materialText += " | ";
-                materialText += $"{ToDisplayName(kv.Key)} {have:F0}/{kv.Value:F0}";
+                if (!first) materialSummary.Append(" | ");
+                materialSummary.Append($"{ToDisplayName(kv.Key)} {have:F0}/{kv.Value:F0}");
+                materialDetail.Append($"\n{ToDisplayName(kv.Key)}：{have:F0}/{kv.Value:F0}");
                 first = false;
             }
-            _materialsLabel.Text = materialText;
+            if (_line2Label != null)
+            {
+                _line2Label.Text = materialSummary.ToString();
+                _line2Label.TooltipText = materialDetail.ToString();
+            }
 
             decimal ningqi = state.GetInventoryQuantity("ningqi_pill");
             decimal pojing = state.GetInventoryQuantity("pojing_pill");
-            string ningqiBuffStatus = state.NingqiPillRemainingSeconds > 0
-                ? $"生效中 {state.NingqiPillRemainingSeconds:F0}s"
-                : "未生效";
-            string pojingBuffStatus = state.PojingPillRemainingSeconds > 0
-                ? $"生效中 {state.PojingPillRemainingSeconds:F0}s"
-                : "未生效";
-            _pillInventoryLabel.Text =
-                $"丹药库存：凝气丹 {ningqi:F0} | 破境丹 {pojing:F0} | 凝气自动服用：{(state.AutoUseNingqiPill ? "开" : "关")} {ningqiBuffStatus} | 破境自动服用：{(state.AutoUsePojingPill ? "开" : "关")} {pojingBuffStatus}";
+            string ningqiBuffStatus = state.NingqiPillRemainingSeconds > 0 ? $"生效中 {state.NingqiPillRemainingSeconds:F0}s" : "未生效";
+            string pojingBuffStatus = state.PojingPillRemainingSeconds > 0 ? $"生效中 {state.PojingPillRemainingSeconds:F0}s" : "未生效";
+            if (_line3Label != null)
+            {
+                _line3Label.Text = $"丹药：凝气 {ningqi:F0} | 破境 {pojing:F0}";
+                _line3Label.TooltipText =
+                    $"凝气丹 {ningqi:F0}（自动{(state.AutoUseNingqiPill ? "开" : "关")}，{ningqiBuffStatus}）\n" +
+                    $"破境丹 {pojing:F0}（自动{(state.AutoUsePojingPill ? "开" : "关")}，{pojingBuffStatus}）";
+            }
         }
 
         private static string ToDisplayName(string itemId)

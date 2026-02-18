@@ -1,55 +1,23 @@
-using Godot;
+﻿using Godot;
 using System;
 
 namespace ImmortalIdle.UI
 {
     /// <summary>
-    /// 灵药园展示组件：显示解锁状态、药槽进度、基础库存
+    /// 灵药园展示组件（统一卡片模板）
     /// </summary>
-    public partial class HerbGardenDisplay : Control
+    public partial class HerbGardenDisplay : SystemCardDisplayBase
     {
-        [Export] private Label _titleLabel;
-        [Export] private Label _statusLabel;
-        [Export] private Label _slot1Label;
-        [Export] private ProgressBar _slot1Progress;
-        [Export] private Label _slot2Label;
-        [Export] private ProgressBar _slot2Progress;
-        [Export] private Label _inventoryLabel;
-
-        private double _updateTimer = 0;
-        private const double UPDATE_INTERVAL = 0.5;
-
-        public override void _Ready()
+        protected override void OnAfterBindNodes()
         {
-            if (_titleLabel == null)
-                _titleLabel = GetNode<Label>("Panel/VBox/TitleLabel");
-            if (_statusLabel == null)
-                _statusLabel = GetNode<Label>("Panel/VBox/StatusLabel");
-            if (_slot1Label == null)
-                _slot1Label = GetNode<Label>("Panel/VBox/Slot1Label");
-            if (_slot1Progress == null)
-                _slot1Progress = GetNode<ProgressBar>("Panel/VBox/Slot1Progress");
-            if (_slot2Label == null)
-                _slot2Label = GetNode<Label>("Panel/VBox/Slot2Label");
-            if (_slot2Progress == null)
-                _slot2Progress = GetNode<ProgressBar>("Panel/VBox/Slot2Progress");
-            if (_inventoryLabel == null)
-                _inventoryLabel = GetNode<Label>("Panel/VBox/InventoryLabel");
-
-            UpdateDisplay();
+            _progressBar ??= FindNodeAny<ProgressBar>("Panel/VBox/ProgressBar", "Panel/VBox/Slot1Progress");
+            _progressLabel ??= FindNodeAny<Label>("Panel/VBox/ProgressLabel", "Panel/VBox/Slot1Label");
+            _line1Label ??= FindNodeAny<Label>("Panel/VBox/Line1Label", "Panel/VBox/Slot2Label");
+            _line2Label ??= FindNodeAny<Label>("Panel/VBox/Line2Label", "Panel/VBox/InventoryLabel");
+            _line3Label ??= FindNodeAny<Label>("Panel/VBox/Line3Label", "Panel/VBox/InventoryLabel");
         }
 
-        public override void _Process(double delta)
-        {
-            _updateTimer += delta;
-            if (_updateTimer >= UPDATE_INTERVAL)
-            {
-                _updateTimer = 0;
-                UpdateDisplay();
-            }
-        }
-
-        private void UpdateDisplay()
+        protected override void RefreshDisplay()
         {
             var state = GameManager.Instance?.CurrentState;
             if (state == null)
@@ -57,60 +25,89 @@ namespace ImmortalIdle.UI
                 return;
             }
 
-            _titleLabel.Text = "灵药园";
+            if (_titleLabel != null) _titleLabel.Text = "灵药园";
 
-            if (state.CurrentRealmId < 1)
+            if (state.CurrentRealmId < GameBalanceConfig.HerbUnlockRealmId)
             {
-                _statusLabel.Text = "未解锁（筑基期解锁）";
-                _slot1Label.Text = "药槽1：未启用";
-                _slot2Label.Text = "药槽2：未启用";
-                _slot1Progress.Value = 0;
-                _slot2Progress.Value = 0;
-                _inventoryLabel.Text = "库存：--";
+                if (_statusLabel != null) _statusLabel.Text = "未解锁（筑基期解锁）";
+                if (_progressBar != null) { _progressBar.MaxValue = 100; _progressBar.Value = 0; }
+                if (_progressLabel != null) _progressLabel.Text = "生长进度：--";
+                if (_line1Label != null) _line1Label.Text = "药槽1：--";
+                if (_line2Label != null) _line2Label.Text = "药槽2：--";
+                if (_line3Label != null) _line3Label.Text = "库存：--";
                 return;
             }
 
             state.EnsureHerbGardenInitialized();
+            if (_statusLabel != null) _statusLabel.Text = $"已解锁 | 池 {state.HerbGardenPool:F1} | 策略 {ToStrategyText(state.ActiveHerbStrategy)}";
 
-            _statusLabel.Text = $"已解锁 | 灵药池：{state.HerbGardenPool:F1} | 策略：{state.ActiveHerbStrategy}";
-            UpdateSlotDisplay(state, 0, _slot1Label, _slot1Progress);
-            UpdateSlotDisplay(state, 1, _slot2Label, _slot2Progress);
+            decimal slot1Percent = GetSlotProgressPercent(state, 0);
+            decimal slot2Percent = GetSlotProgressPercent(state, 1);
+            decimal avgPercent = (slot1Percent + slot2Percent) * 0.5m;
 
-            decimal ningqi = GetInventory(state, "ningqi_grass");
-            decimal qingling = GetInventory(state, "qingling_leaf");
-            decimal rareA = GetInventory(state, "xuanxin_zhi");
-            decimal rareB = GetInventory(state, "xingchen_lotus");
-            _inventoryLabel.Text =
-                $"库存：凝气草 {ningqi:F0} | 青灵叶 {qingling:F0} | 玄心芝 {rareA:F0} | 星尘莲 {rareB:F0}";
+            if (_progressBar != null) { _progressBar.MaxValue = 100; _progressBar.Value = (double)avgPercent; }
+            if (_progressLabel != null) _progressLabel.Text = $"生长进度：{avgPercent:F0}%";
+
+            if (_line1Label != null) _line1Label.Text = $"药槽1：{GetSlotShortText(state, 0)}";
+            if (_line2Label != null) _line2Label.Text = $"药槽2：{GetSlotShortText(state, 1)}";
+
+            decimal ningqi = state.GetInventoryQuantity("ningqi_grass");
+            decimal qingling = state.GetInventoryQuantity("qingling_leaf");
+            decimal rareA = state.GetInventoryQuantity("xuanxin_zhi");
+            decimal rareB = state.GetInventoryQuantity("xingchen_lotus");
+            if (_line3Label != null)
+            {
+                _line3Label.Text = $"库存：草 {ningqi:F0} | 叶 {qingling:F0} | 稀有 {rareA + rareB:F0}";
+                _line3Label.TooltipText = $"凝气草 {ningqi:F0}\n青灵叶 {qingling:F0}\n玄心芝 {rareA:F0}\n星尘莲 {rareB:F0}";
+            }
         }
 
-        private static decimal GetInventory(GameState state, string herbId)
-        {
-            return state.GetInventoryQuantity(herbId);
-        }
-
-        private static void UpdateSlotDisplay(
-            GameState state,
-            int slotIndex,
-            Label slotLabel,
-            ProgressBar progressBar)
+        private static decimal GetSlotProgressPercent(GameState state, int slotIndex)
         {
             if (slotIndex >= state.HerbSlots.Count)
             {
-                slotLabel.Text = $"药槽{slotIndex + 1}：未配置";
-                progressBar.Value = 0;
-                return;
+                return 0m;
             }
 
             var slot = state.HerbSlots[slotIndex];
             double requirement = Math.Max(1.0, (double)slot.GrowthRequirement);
             double progress = Math.Clamp((double)slot.GrowthProgress, 0, requirement);
+            return (decimal)(progress / requirement * 100.0);
+        }
 
-            progressBar.MaxValue = requirement;
-            progressBar.Value = progress;
+        private static string GetSlotShortText(GameState state, int slotIndex)
+        {
+            if (slotIndex >= state.HerbSlots.Count)
+            {
+                return "未配置";
+            }
 
-            slotLabel.Text =
-                $"药槽{slotIndex + 1}：{slot.HerbId} {slot.GrowthProgress:F1}/{slot.GrowthRequirement:F1}";
+            var slot = state.HerbSlots[slotIndex];
+            decimal percent = GetSlotProgressPercent(state, slotIndex);
+            return $"{ToHerbShortName(slot.HerbId)} {percent:F0}%";
+        }
+
+        private static string ToStrategyText(string strategyId)
+        {
+            HerbStrategyConfig strategy = ConfigLoader.GetHerbStrategy(strategyId);
+            if (strategy != null && !string.IsNullOrWhiteSpace(strategy.Name))
+            {
+                return strategy.Name;
+            }
+
+            return string.IsNullOrWhiteSpace(strategyId) ? "未设置" : strategyId;
+        }
+
+        private static string ToHerbShortName(string herbId)
+        {
+            return herbId switch
+            {
+                "ningqi_grass" => "凝气草",
+                "qingling_leaf" => "青灵叶",
+                "chiyan_fruit" => "赤炎果",
+                "hansui_flower" => "寒髓花",
+                _ => herbId
+            };
         }
     }
 }

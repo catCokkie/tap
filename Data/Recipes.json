@@ -1,0 +1,58 @@
+{
+  "alchemyRecipes": [
+    {
+      "id": "ningqi_pill_recipe",
+      "name": "凝气丹",
+      "sortOrder": 0,
+      "unlockRealmId": 1,
+      "progressRequired": 120,
+      "inputs": {
+        "ningqi_grass": 2,
+        "qingling_leaf": 1
+      },
+      "outputItemId": "ningqi_pill",
+      "outputAmount": 1
+    },
+    {
+      "id": "pojing_pill_recipe",
+      "name": "破境丹",
+      "sortOrder": 1,
+      "unlockRealmId": 4,
+      "progressRequired": 240,
+      "inputs": {
+        "chiyan_fruit": 2,
+        "hansui_flower": 2
+      },
+      "outputItemId": "pojing_pill",
+      "outputAmount": 1
+    }
+  ],
+  "craftRecipes": [
+    {
+      "id": "wind_charm_recipe",
+      "name": "御风符胚",
+      "sortOrder": 0,
+      "unlockRealmId": 4,
+      "progressRequired": 180,
+      "inputs": {
+        "pet_essence": 2,
+        "xuanxin_zhi": 1
+      },
+      "outputItemId": "craft_shard",
+      "outputAmount": 1
+    },
+    {
+      "id": "mountain_heart_recipe",
+      "name": "镇岳符胚",
+      "sortOrder": 1,
+      "unlockRealmId": 4,
+      "progressRequired": 220,
+      "inputs": {
+        "pet_essence": 2,
+        "xingchen_lotus": 1
+      },
+      "outputItemId": "craft_realm_shard",
+      "outputAmount": 1
+    }
+  ]
+}

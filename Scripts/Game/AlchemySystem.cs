@@ -1,66 +1,22 @@
-using Godot;
+﻿using Godot;
 using System;
 using System.Collections.Generic;
 
 namespace ImmortalIdle
 {
     /// <summary>
-    /// 炼丹系统：消耗炼丹池和灵药库存，自动产出丹药库存
+    /// 炼丹系统：消耗炼丹池和材料，自动产出丹药并触发自动服丹。
     /// </summary>
     public partial class AlchemySystem : Node
     {
-        private class RecipeConfig
-        {
-            public string RecipeId { get; set; } = "";
-            public string Name { get; set; } = "";
-            public int UnlockRealmId { get; set; }
-            public decimal ProgressRequired { get; set; }
-            public Dictionary<string, decimal> Inputs { get; set; } = new();
-            public string OutputItemId { get; set; } = "";
-            public decimal OutputAmount { get; set; }
-        }
-
-        private readonly Dictionary<string, RecipeConfig> _recipes = new()
-        {
-            ["ningqi_pill_recipe"] = new RecipeConfig
-            {
-                RecipeId = "ningqi_pill_recipe",
-                Name = "凝气丹",
-                UnlockRealmId = 3, // 元婴期
-                ProgressRequired = 120m,
-                Inputs = new Dictionary<string, decimal>
-                {
-                    ["ningqi_grass"] = 2m,
-                    ["qingling_leaf"] = 1m
-                },
-                OutputItemId = "ningqi_pill",
-                OutputAmount = 1m
-            },
-            ["pojing_pill_recipe"] = new RecipeConfig
-            {
-                RecipeId = "pojing_pill_recipe",
-                Name = "破境丹",
-                UnlockRealmId = 4, // 度劫期
-                ProgressRequired = 240m,
-                Inputs = new Dictionary<string, decimal>
-                {
-                    ["chiyan_fruit"] = 2m,
-                    ["hansui_flower"] = 2m
-                },
-                OutputItemId = "pojing_pill",
-                OutputAmount = 1m
-            }
-        };
-
-        private double _tickTimer = 0;
-        private const double TICK_INTERVAL = 0.2;
-        private double _lackMaterialLogCooldown = 0;
+        private double _tickTimer;
+        private double _lackMaterialLogCooldown;
 
         public override void _Process(double delta)
         {
             _tickTimer += delta;
             _lackMaterialLogCooldown = Math.Max(0, _lackMaterialLogCooldown - delta);
-            if (_tickTimer < TICK_INTERVAL)
+            if (_tickTimer < GameBalanceConfig.AlchemyTickInterval)
             {
                 return;
             }
@@ -72,20 +28,26 @@ namespace ImmortalIdle
 
         private void ProcessAlchemy(double deltaSeconds)
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null || state.CurrentRealmId < 3 || !state.AlchemyAutoEnabled)
+            GameState state = GameManager.Instance?.CurrentState;
+            if (state == null || state.CurrentRealmId < GameBalanceConfig.AlchemyUnlockRealmId || !state.AlchemyAutoEnabled)
             {
                 return;
             }
 
             state.EnsureInventoryInitialized();
-            if (!_recipes.TryGetValue(state.ActiveAlchemyRecipeId, out RecipeConfig recipe))
+            AlchemyRecipeConfig recipe = ConfigLoader.GetAlchemyRecipe(state.ActiveAlchemyRecipeId)
+                ?? ConfigLoader.GetAlchemyRecipe(GameBalanceConfig.DefaultAlchemyRecipeId);
+            if (recipe == null)
             {
-                recipe = _recipes["ningqi_pill_recipe"];
-                state.ActiveAlchemyRecipeId = recipe.RecipeId;
+                return;
             }
 
-            var log = GameManager.Instance?.GetNodeOrNull<LogSystem>("LogSystem");
+            if (state.ActiveAlchemyRecipeId != recipe.Id)
+            {
+                state.ActiveAlchemyRecipeId = recipe.Id;
+            }
+
+            LogSystem log = GameManager.Instance?.GetNodeOrNull<LogSystem>("LogSystem");
             TryAutoUseNingqiPill(state, log);
             TryAutoUsePojingPill(state, log);
 
@@ -96,7 +58,7 @@ namespace ImmortalIdle
 
             if (state.AlchemyPool > 0m)
             {
-                decimal efficiency = GetAlchemyEfficiency(state);
+                decimal efficiency = GetAlchemyEfficiency(state) * state.GetEffectiveDebugProgressMultiplier();
                 state.AlchemyProgress += state.AlchemyPool * efficiency * (decimal)deltaSeconds;
                 state.AlchemyPool = 0m;
             }
@@ -115,10 +77,11 @@ namespace ImmortalIdle
                         _lackMaterialLogCooldown = 10;
                         log?.AddLog("system", $"【炼丹房】材料不足，无法继续炼制 {recipe.Name}");
                     }
+
                     break;
                 }
 
-                foreach (var kv in recipe.Inputs)
+                foreach (KeyValuePair<string, decimal> kv in recipe.Inputs)
                 {
                     state.TryConsumeInventory(kv.Key, kv.Value);
                 }
@@ -172,7 +135,7 @@ namespace ImmortalIdle
 
         private static bool HasIngredients(GameState state, Dictionary<string, decimal> inputs)
         {
-            foreach (var kv in inputs)
+            foreach (KeyValuePair<string, decimal> kv in inputs)
             {
                 if (state.GetInventoryQuantity(kv.Key) < kv.Value)
                 {

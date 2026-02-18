@@ -1,6 +1,5 @@
-using Godot;
+﻿using Godot;
 using System;
-using System.Collections.Generic;
 
 namespace ImmortalIdle
 {
@@ -11,7 +10,6 @@ namespace ImmortalIdle
     {
         private readonly RandomNumberGenerator _rng = new();
         private double _tickTimer = 0;
-        private const double TICK_INTERVAL = 0.2;
 
         private static readonly string[] BonusTypes = { "input_cap", "input_rate", "herb_growth" };
 
@@ -23,7 +21,7 @@ namespace ImmortalIdle
         public override void _Process(double delta)
         {
             _tickTimer += delta;
-            if (_tickTimer < TICK_INTERVAL)
+            if (_tickTimer < GameBalanceConfig.SpiritPetTickInterval)
             {
                 return;
             }
@@ -36,7 +34,7 @@ namespace ImmortalIdle
         private void ProcessSpiritPet(double deltaSeconds)
         {
             var state = GameManager.Instance?.CurrentState;
-            if (state == null || state.CurrentRealmId < 2 || !state.SpiritPetAutoEnabled)
+            if (state == null || state.CurrentRealmId < GameBalanceConfig.SpiritPetUnlockRealmId || !state.SpiritPetAutoEnabled)
             {
                 return;
             }
@@ -44,6 +42,7 @@ namespace ImmortalIdle
             if (state.SpiritPetPool > 0m)
             {
                 decimal efficiency = 1.0m + state.PrestigeCount * 0.05m;
+                efficiency *= state.GetEffectiveDebugProgressMultiplier();
                 state.SpiritPetProgress += state.SpiritPetPool * efficiency * (decimal)deltaSeconds;
                 state.SpiritPetPool = 0m;
             }
@@ -76,9 +75,14 @@ namespace ImmortalIdle
                 return false;
             }
 
-            string rarity = RollRarity(state.PrestigeCount);
+            string rarity = ConfigLoader.RollSpiritPetRarity(state.PrestigeCount);
             string bonusType = BonusTypes[_rng.RandiRange(0, BonusTypes.Length - 1)];
-            decimal baseBonus = GetBaseBonus(rarity, bonusType);
+            decimal baseBonus = ConfigLoader.GetSpiritPetBonusValue(rarity, bonusType);
+            if (baseBonus <= 0m)
+            {
+                baseBonus = GetBaseBonusFallback(rarity, bonusType);
+            }
+
             string name = BuildPetName(rarity, bonusType);
 
             state.SpiritPets.Add(new GameState.SpiritPetState
@@ -96,25 +100,7 @@ namespace ImmortalIdle
             return true;
         }
 
-        private string RollRarity(int prestigeCount)
-        {
-            float epicChance = Math.Min(0.12f, 0.05f + prestigeCount * 0.004f);
-            float rareChance = Math.Min(0.40f, 0.25f + prestigeCount * 0.01f);
-            float roll = _rng.Randf();
-            if (roll < epicChance)
-            {
-                return "epic";
-            }
-
-            if (roll < epicChance + rareChance)
-            {
-                return "rare";
-            }
-
-            return "common";
-        }
-
-        private static decimal GetBaseBonus(string rarity, string bonusType)
+        private static decimal GetBaseBonusFallback(string rarity, string bonusType)
         {
             return (rarity, bonusType) switch
             {
@@ -142,9 +128,9 @@ namespace ImmortalIdle
 
             string core = bonusType switch
             {
-                "input_cap" => "吞风狐",
+                "input_cap" => "吞风兽",
                 "input_rate" => "悟道鹤",
-                "herb_growth" => "护药鹿",
+                "herb_growth" => "护药貂",
                 _ => "异兽"
             };
 

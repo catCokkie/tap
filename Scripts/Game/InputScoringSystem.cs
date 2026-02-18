@@ -20,6 +20,12 @@ namespace ImmortalIdle
         private decimal _rawPointsInWindow = 0m;
         private decimal _pendingCultivation = 0m;
         private bool _inputStartedLogged = false;
+        private decimal _windowStartEffectivePoints = 0m;
+        private decimal _windowStartMain = 0m;
+        private decimal _windowStartHerb = 0m;
+        private decimal _windowStartPet = 0m;
+        private decimal _windowStartAlchemy = 0m;
+        private decimal _windowStartCraft = 0m;
 
         private WindowsGlobalInputListener _globalInputListener;
         private bool _useGlobalInput;
@@ -29,18 +35,25 @@ namespace ImmortalIdle
             _globalInputListener = new WindowsGlobalInputListener();
             _useGlobalInput = _globalInputListener.Start();
 
-            // 仅在未启用全局采集时，使用窗口内输入回调作为回退。
-            SetProcessInput(!_useGlobalInput);
+            // 始终保留 _Input 回调：键鼠在全局采集可用时由全局路径处理，
+            // 手柄输入始终通过 Godot 事件路径处理。
+            SetProcessInput(true);
 
             if (_useGlobalInput)
             {
                 GameManager.Instance?.GetNodeOrNull<LogSystem>("LogSystem")
-                    ?.AddLog("system", "已启用 Windows 全局输入采集（后台可运行）");
+                    ?.AddLog("system", "已启用 Windows 全局输入采集（后台可运行，手柄走窗口输入路径）");
             }
             else
             {
                 GameManager.Instance?.GetNodeOrNull<LogSystem>("LogSystem")
-                    ?.AddLog("system", "未启用全局输入采集，当前使用前台窗口输入");
+                    ?.AddLog("system", "未启用全局输入采集，当前使用前台窗口输入（含手柄）");
+            }
+
+            var state = GameManager.Instance?.CurrentState;
+            if (state != null)
+            {
+                InitializeMetricWindow(state);
             }
         }
 
@@ -52,11 +65,6 @@ namespace ImmortalIdle
 
         public override void _Input(InputEvent @event)
         {
-            if (_useGlobalInput)
-            {
-                return;
-            }
-
             var state = GameManager.Instance?.CurrentState;
             if (state == null)
             {
@@ -64,7 +72,16 @@ namespace ImmortalIdle
             }
 
             double nowSeconds = Time.GetTicksMsec() / 1000.0;
-            decimal rawDelta = SampleInputPoints(@event, nowSeconds);
+            decimal rawDelta = 0m;
+            if (IsJoypadEvent(@event))
+            {
+                rawDelta = SampleJoypadPoints(@event, nowSeconds);
+            }
+            else if (!_useGlobalInput)
+            {
+                rawDelta = SampleInputPoints(@event, nowSeconds);
+            }
+
             if (rawDelta <= 0m)
             {
                 return;
@@ -84,10 +101,12 @@ namespace ImmortalIdle
             ConsumeGlobalInput(state);
 
             _windowElapsed += delta;
-            if (_windowElapsed >= WINDOW_SECONDS)
+            while (_windowElapsed >= WINDOW_SECONDS)
             {
                 _windowElapsed -= WINDOW_SECONDS;
+                EmitWindowMetrics(state);
                 _rawPointsInWindow = 0m;
+                InitializeMetricWindow(state);
             }
 
             long gainLong = (long)decimal.Floor(_pendingCultivation);
@@ -136,6 +155,7 @@ namespace ImmortalIdle
             decimal effectiveDelta = newEffective - oldEffective;
 
             decimal practiceValue = effectiveDelta * state.GetEffectiveInputConversionRate();
+            practiceValue *= state.GetEffectiveDebugProgressMultiplier();
             var weights = state.GetInputAllocationWeights();
 
             decimal mainGain = practiceValue * weights.Main;
@@ -254,6 +274,47 @@ namespace ImmortalIdle
             return 0m;
         }
 
+        private static bool IsJoypadEvent(InputEvent @event)
+        {
+            return @event is InputEventJoypadButton || @event is InputEventJoypadMotion;
+        }
+
+        private decimal SampleJoypadPoints(InputEvent @event, double nowSeconds)
+        {
+            if (@event is InputEventJoypadButton joypadButton && joypadButton.Pressed)
+            {
+                string signature = $"jb:{joypadButton.Device}:{(int)joypadButton.ButtonIndex}";
+                if (!PassDebounce(signature, nowSeconds, 0.05))
+                {
+                    return 0m;
+                }
+
+                return 1m;
+            }
+
+            if (@event is InputEventJoypadMotion joypadMotion)
+            {
+                float axisValue = joypadMotion.AxisValue;
+                float abs = Math.Abs(axisValue);
+                if (abs < 0.6f)
+                {
+                    return 0m;
+                }
+
+                int direction = axisValue > 0 ? 1 : -1;
+                string signature = $"jm:{joypadMotion.Device}:{(int)joypadMotion.Axis}:{direction}";
+                if (!PassDebounce(signature, nowSeconds, 0.08))
+                {
+                    return 0m;
+                }
+
+                // 轻推计0.5，重推计1.0
+                return abs >= 0.9f ? 1m : 0.5m;
+            }
+
+            return 0m;
+        }
+
         private bool PassDebounce(string signature, double nowSeconds, double cooldownSeconds)
         {
             if (_lastInputTime.TryGetValue(signature, out double lastTime))
@@ -284,6 +345,53 @@ namespace ImmortalIdle
             }
 
             return cap + (softCap - cap) * 0.5m + (rawPoints - softCap) * 0.2m;
+        }
+
+        private void InitializeMetricWindow(GameState state)
+        {
+            _windowStartEffectivePoints = state.TotalInputPointsEffective;
+            _windowStartMain = state.TotalAllocatedMain;
+            _windowStartHerb = state.TotalAllocatedHerb;
+            _windowStartPet = state.TotalAllocatedPet;
+            _windowStartAlchemy = state.TotalAllocatedAlchemy;
+            _windowStartCraft = state.TotalAllocatedCraft;
+        }
+
+        private void EmitWindowMetrics(GameState state)
+        {
+            decimal effectivePoints = Math.Max(0m, state.TotalInputPointsEffective - _windowStartEffectivePoints);
+            decimal main = Math.Max(0m, state.TotalAllocatedMain - _windowStartMain);
+            decimal herb = Math.Max(0m, state.TotalAllocatedHerb - _windowStartHerb);
+            decimal pet = Math.Max(0m, state.TotalAllocatedPet - _windowStartPet);
+            decimal alchemy = Math.Max(0m, state.TotalAllocatedAlchemy - _windowStartAlchemy);
+            decimal craft = Math.Max(0m, state.TotalAllocatedCraft - _windowStartCraft);
+
+            if (_rawPointsInWindow <= 0m
+                && effectivePoints <= 0m
+                && main <= 0m
+                && herb <= 0m
+                && pet <= 0m
+                && alchemy <= 0m
+                && craft <= 0m)
+            {
+                return;
+            }
+
+            LogSystem log = GameManager.Instance?.GetNodeOrNull<LogSystem>("LogSystem");
+            if (log == null)
+            {
+                return;
+            }
+
+            log.AddMetric("input.raw_per_min", _rawPointsInWindow);
+            log.AddMetric("input.effective_per_min", effectivePoints);
+            log.AddMetric("output.main_per_min", main);
+            log.AddMetric("output.herb_per_min", herb);
+            log.AddMetric("output.pet_per_min", pet);
+            log.AddMetric("output.alchemy_per_min", alchemy);
+            log.AddMetric("output.craft_per_min", craft);
+            log.AddMetric("input.minute_cap", state.GetEffectiveInputMinuteCap());
+            log.AddMetric("input.conversion_rate", state.GetEffectiveInputConversionRate());
         }
     }
 }

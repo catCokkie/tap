@@ -1,0 +1,67 @@
+{
+  "herbSystem": {
+    "activeSlotCount": 2,
+    "rareDropUnlockRealmId": 4,
+    "rareDropBaseChance": 0.02,
+    "rareDropPrestigeBonus": 0.0025,
+    "rareDropChanceMax": 0.15,
+    "defaultStrategyId": "balanced",
+    "herbRules": [
+      {
+        "herbId": "ningqi_grass",
+        "growthRequirement": 100,
+        "minYield": 1,
+        "maxYield": 3
+      },
+      {
+        "herbId": "qingling_leaf",
+        "growthRequirement": 100,
+        "minYield": 1,
+        "maxYield": 3
+      },
+      {
+        "herbId": "chiyan_fruit",
+        "growthRequirement": 140,
+        "minYield": 1,
+        "maxYield": 2
+      },
+      {
+        "herbId": "hansui_flower",
+        "growthRequirement": 140,
+        "minYield": 1,
+        "maxYield": 2
+      }
+    ],
+    "strategies": [
+      {
+        "id": "balanced",
+        "name": "均衡种植",
+        "slotHerbs": [ "ningqi_grass", "qingling_leaf" ]
+      },
+      {
+        "id": "focus_ningqi",
+        "name": "单药冲刺（凝气草）",
+        "slotHerbs": [ "ningqi_grass", "ningqi_grass" ]
+      }
+    ]
+  },
+  "spiritPetSystem": {
+    "epicChanceBase": 0.05,
+    "epicChancePrestigeBonus": 0.004,
+    "epicChanceMax": 0.12,
+    "rareChanceBase": 0.25,
+    "rareChancePrestigeBonus": 0.01,
+    "rareChanceMax": 0.4,
+    "bonusValues": [
+      { "rarity": "common", "bonusType": "input_cap", "value": 10 },
+      { "rarity": "common", "bonusType": "input_rate", "value": 0.03 },
+      { "rarity": "common", "bonusType": "herb_growth", "value": 0.05 },
+      { "rarity": "rare", "bonusType": "input_cap", "value": 25 },
+      { "rarity": "rare", "bonusType": "input_rate", "value": 0.08 },
+      { "rarity": "rare", "bonusType": "herb_growth", "value": 0.12 },
+      { "rarity": "epic", "bonusType": "input_cap", "value": 50 },
+      { "rarity": "epic", "bonusType": "input_rate", "value": 0.15 },
+      { "rarity": "epic", "bonusType": "herb_growth", "value": 0.20 }
+    ]
+  }
+}
