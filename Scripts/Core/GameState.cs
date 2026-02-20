@@ -12,9 +12,6 @@ namespace ImmortalIdle
     /// </summary>
     public class GameState
     {
-        private const int MAX_REALM_ID = 6;
-        private const int MAX_REALM_LEVEL = 3;
-
         public struct InputAllocationWeights
         {
             public decimal Main;
@@ -70,6 +67,7 @@ namespace ImmortalIdle
         public int PrestigeCount { get; set; }
         
 // 说明。
+        [JsonConverter(typeof(BigIntegerJsonConverter))]
         public BigInteger TotalCultivationEarned { get; set; }
         public int TotalClicks { get; set; }
         public long TotalPlayTime { get; set; } // 绉?
@@ -133,6 +131,7 @@ namespace ImmortalIdle
         // 灵药园状态
         public int HerbGardenLevel { get; set; } = 1;
         public string ActiveHerbStrategy { get; set; } = "balanced";
+        public bool UseManualHerbSlots { get; set; } = false;
         public List<HerbSlotState> HerbSlots { get; set; } = new();
 
         // 炼丹系统状态
@@ -257,13 +256,10 @@ namespace ImmortalIdle
         /// </summary>
         public string GetCurrentRealmName()
         {
-            string[] realms = { "炼气期", "筑基期", "灵寂期", "金丹期", "元婴期", "度劫期", "分神期" };
-            string[] levels = { "初期", "中期", "后期", "圆满" };
-            
-            if (CurrentRealmId < realms.Length)
+            if (CurrentRealmId >= 0)
             {
-                string realmName = realms[CurrentRealmId];
-                string levelName = CurrentRealmLevel < levels.Length ? levels[CurrentRealmLevel] : "圆满";
+                string realmName = ConfigLoader.GetRealmName(CurrentRealmId);
+                string levelName = ConfigLoader.GetRealmLevelName(CurrentRealmLevel);
                 return $"{realmName}{levelName}";
             }
             return "未知境界";
@@ -347,8 +343,8 @@ namespace ImmortalIdle
         /// </summary>
         public bool CanRebirth()
         {
-            return CurrentRealmId >= MAX_REALM_ID
-                && CurrentRealmLevel >= MAX_REALM_LEVEL
+            return CurrentRealmId >= ConfigLoader.GetMaxRealmId()
+                && CurrentRealmLevel >= ConfigLoader.GetMaxRealmLevel()
                 && CanBreakthrough();
         }
 
@@ -419,18 +415,9 @@ namespace ImmortalIdle
 
         public string GetStageGoalText()
         {
-            string nextUnlock = CurrentRealmId switch
-            {
-                0 => "目标：突破到筑基，解锁灵药园与炼丹房。",
-                1 => "目标：突破到灵寂，解锁灵宠园。",
-                2 => "目标：突破到金丹，强化资源循环效率。",
-                3 => "目标：突破到元婴，解锁炼器坊。",
-                4 => "目标：推进度劫阶段，准备高阶资源。",
-                5 => "目标：冲击分神圆满，准备转世。",
-                _ => CanRebirth()
-                    ? "目标：可转世，建议先确认本轮资源后再突破。"
-                    : "目标：达到分神圆满并满足转世条件。"
-            };
+            string nextUnlock = CurrentRealmId > ConfigLoader.GetMaxRealmId()
+                ? (CanRebirth() ? ConfigLoader.GetRebirthReadyGoalText() : ConfigLoader.GetRebirthPendingGoalText())
+                : ConfigLoader.GetStageGoalText(CurrentRealmId);
 
             if (CanBreakthrough())
             {
@@ -473,6 +460,7 @@ namespace ImmortalIdle
 
             HerbGardenLevel = 1;
             ActiveHerbStrategy = "balanced";
+            UseManualHerbSlots = false;
             HerbSlots.Clear();
 
             SpiritPetAutoEnabled = true;
@@ -879,18 +867,8 @@ namespace ImmortalIdle
 
         private BigInteger GetBaseBreakthroughRequirement()
         {
-            // 60h 首转基线：按输入驱动节奏重标定，避免首轮过长。
-            BigInteger baseReq = CurrentRealmId switch
-            {
-                0 => 2,
-                1 => 10,
-                2 => 40,
-                3 => 200,
-                4 => 1000,
-                5 => 4000,
-                6 => 20000,
-                _ => BigInteger.Parse("50000")
-            };
+            // 基础需求由配置驱动，便于按版本调参与迭代。
+            BigInteger baseReq = ConfigLoader.GetRealmBaseRequirement(CurrentRealmId);
 
             BigInteger required = baseReq * (CurrentRealmLevel + 1);
             int scalePerMille = (int)Math.Round((double)(Math.Clamp(BreakthroughRequirementScale, 0.2m, 10m) * 1000m));
@@ -916,8 +894,43 @@ namespace ImmortalIdle
     {
         public override BigInteger Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            string value = reader.GetString();
-            return BigInteger.Parse(value);
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                string value = reader.GetString();
+                return BigInteger.TryParse(value, out BigInteger parsed) ? parsed : BigInteger.Zero;
+            }
+
+            if (reader.TokenType == JsonTokenType.Number)
+            {
+                if (reader.TryGetInt64(out long i64))
+                {
+                    return new BigInteger(i64);
+                }
+
+                decimal dec = reader.GetDecimal();
+                return new BigInteger(dec);
+            }
+
+            if (reader.TokenType == JsonTokenType.StartObject)
+            {
+                // 兼容旧错误格式：BigInteger 被序列化为对象，至少提取 sign，防止整档读取失败。
+                using JsonDocument doc = JsonDocument.ParseValue(ref reader);
+                if (doc.RootElement.TryGetProperty("sign", out JsonElement signEl)
+                    && signEl.ValueKind == JsonValueKind.Number
+                    && signEl.TryGetInt32(out int sign))
+                {
+                    return sign switch
+                    {
+                        > 0 => BigInteger.One,
+                        < 0 => BigInteger.MinusOne,
+                        _ => BigInteger.Zero
+                    };
+                }
+
+                return BigInteger.Zero;
+            }
+
+            return BigInteger.Zero;
         }
 
         public override void Write(Utf8JsonWriter writer, BigInteger value, JsonSerializerOptions options)

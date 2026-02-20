@@ -398,6 +398,7 @@ scroll_following = true
 
 [node name="ButtonContainer" type="HBoxContainer" parent="GameHUD/MainContainer"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 50)
 theme_override_constants/separation = 10
 alignment = 1
 

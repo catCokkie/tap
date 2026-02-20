@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -25,8 +26,11 @@ namespace ImmortalIdle
         private static readonly Dictionary<string, HerbRuleConfig> HerbRuleMap = new(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, HerbStrategyConfig> HerbStrategyMap = new(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, SpiritPetBonusConfig> SpiritPetBonusMap = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<int, RealmStageConfig> RealmStageMap = new();
+        private static readonly Dictionary<int, string> RealmStageGoalMap = new();
         private static HerbSystemConfig _herbSystemConfig;
         private static SpiritPetSystemConfig _spiritPetSystemConfig;
+        private static RealmSystemConfig _realmSystemConfig;
         private static bool _loaded;
 
         public static void EnsureLoaded()
@@ -150,6 +154,12 @@ namespace ImmortalIdle
             return rule;
         }
 
+        public static IReadOnlyList<HerbRuleConfig> GetAllHerbRules()
+        {
+            EnsureLoaded();
+            return HerbRuleMap.Values.OrderBy(x => x.HerbId).ToList();
+        }
+
         public static int GetHerbActiveSlotCount()
         {
             EnsureLoaded();
@@ -239,6 +249,142 @@ namespace ImmortalIdle
             }
 
             return 0m;
+        }
+
+        public static string GetRealmName(int realmId)
+        {
+            EnsureLoaded();
+            if (RealmStageMap.TryGetValue(realmId, out RealmStageConfig stage)
+                && !string.IsNullOrWhiteSpace(stage.Name))
+            {
+                return stage.Name;
+            }
+
+            return realmId switch
+            {
+                0 => "炼气期",
+                1 => "筑基期",
+                2 => "灵寂期",
+                3 => "金丹期",
+                4 => "元婴期",
+                5 => "度劫期",
+                6 => "分神期",
+                _ => "未知境界"
+            };
+        }
+
+        public static string GetRealmLevelName(int realmLevel)
+        {
+            EnsureLoaded();
+            if (_realmSystemConfig?.LevelNames != null
+                && realmLevel >= 0
+                && realmLevel < _realmSystemConfig.LevelNames.Count
+                && !string.IsNullOrWhiteSpace(_realmSystemConfig.LevelNames[realmLevel]))
+            {
+                return _realmSystemConfig.LevelNames[realmLevel];
+            }
+
+            return realmLevel switch
+            {
+                0 => "初期",
+                1 => "中期",
+                2 => "后期",
+                _ => "圆满"
+            };
+        }
+
+        public static int GetMaxRealmId()
+        {
+            EnsureLoaded();
+            if (RealmStageMap.Count == 0)
+            {
+                return 6;
+            }
+
+            int maxRealmId = 0;
+            foreach (int realmId in RealmStageMap.Keys)
+            {
+                if (realmId > maxRealmId)
+                {
+                    maxRealmId = realmId;
+                }
+            }
+
+            return maxRealmId;
+        }
+
+        public static int GetMaxRealmLevel()
+        {
+            EnsureLoaded();
+            int configured = (_realmSystemConfig?.LevelNames?.Count ?? 0) - 1;
+            return Math.Max(3, configured);
+        }
+
+        public static BigInteger GetRealmBaseRequirement(int realmId)
+        {
+            EnsureLoaded();
+            if (RealmStageMap.TryGetValue(realmId, out RealmStageConfig stage)
+                && !string.IsNullOrWhiteSpace(stage.BaseRequirement)
+                && BigInteger.TryParse(stage.BaseRequirement, out BigInteger parsed)
+                && parsed > 0)
+            {
+                return parsed;
+            }
+
+            return realmId switch
+            {
+                0 => 2,
+                1 => 10,
+                2 => 40,
+                3 => 200,
+                4 => 1000,
+                5 => 4000,
+                6 => 20000,
+                _ => BigInteger.Parse("50000")
+            };
+        }
+
+        public static string GetStageGoalText(int realmId)
+        {
+            EnsureLoaded();
+            if (RealmStageGoalMap.TryGetValue(realmId, out string text)
+                && !string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+
+            return realmId switch
+            {
+                0 => "目标：突破到筑基，解锁灵药园与炼丹房。",
+                1 => "目标：突破到灵寂，解锁灵宠园。",
+                2 => "目标：突破到金丹，强化资源循环效率。",
+                3 => "目标：突破到元婴，解锁炼器坊。",
+                4 => "目标：推进度劫阶段，准备高阶资源。",
+                5 => "目标：冲击分神圆满，准备转世。",
+                _ => "目标：达到分神圆满并满足转世条件。"
+            };
+        }
+
+        public static string GetRebirthReadyGoalText()
+        {
+            EnsureLoaded();
+            if (!string.IsNullOrWhiteSpace(_realmSystemConfig?.RebirthReadyGoalText))
+            {
+                return _realmSystemConfig.RebirthReadyGoalText;
+            }
+
+            return "目标：可转世，建议先确认本轮资源后再突破。";
+        }
+
+        public static string GetRebirthPendingGoalText()
+        {
+            EnsureLoaded();
+            if (!string.IsNullOrWhiteSpace(_realmSystemConfig?.RebirthPendingGoalText))
+            {
+                return _realmSystemConfig.RebirthPendingGoalText;
+            }
+
+            return "目标：达到分神圆满并满足转世条件。";
         }
 
         private static void LoadMethods()
@@ -373,8 +519,11 @@ namespace ImmortalIdle
             HerbRuleMap.Clear();
             HerbStrategyMap.Clear();
             SpiritPetBonusMap.Clear();
+            RealmStageMap.Clear();
+            RealmStageGoalMap.Clear();
             _herbSystemConfig = null;
             _spiritPetSystemConfig = null;
+            _realmSystemConfig = null;
 
             string json = ReadTextFile("res://Data/SystemConfigs.json");
             if (string.IsNullOrWhiteSpace(json))
@@ -391,6 +540,7 @@ namespace ImmortalIdle
 
             _herbSystemConfig = root.HerbSystem ?? new HerbSystemConfig();
             _spiritPetSystemConfig = root.SpiritPetSystem ?? new SpiritPetSystemConfig();
+            _realmSystemConfig = root.RealmSystem ?? new RealmSystemConfig();
 
             if (_herbSystemConfig.HerbRules != null)
             {
@@ -430,6 +580,25 @@ namespace ImmortalIdle
 
                     string key = $"{bonus.Rarity}:{bonus.BonusType}";
                     SpiritPetBonusMap[key] = bonus;
+                }
+            }
+
+            if (_realmSystemConfig.RealmStages != null)
+            {
+                foreach (RealmStageConfig stage in _realmSystemConfig.RealmStages)
+                {
+                    RealmStageMap[stage.Id] = stage;
+                }
+            }
+
+            if (_realmSystemConfig.StageGoals != null)
+            {
+                foreach (RealmStageGoalConfig goal in _realmSystemConfig.StageGoals)
+                {
+                    if (!string.IsNullOrWhiteSpace(goal.GoalText))
+                    {
+                        RealmStageGoalMap[goal.RealmId] = goal.GoalText;
+                    }
                 }
             }
         }
@@ -640,6 +809,9 @@ namespace ImmortalIdle
 
         [JsonPropertyName("spiritPetSystem")]
         public SpiritPetSystemConfig SpiritPetSystem { get; set; } = new();
+
+        [JsonPropertyName("realmSystem")]
+        public RealmSystemConfig RealmSystem { get; set; } = new();
     }
 
     public class HerbSystemConfig
@@ -730,5 +902,44 @@ namespace ImmortalIdle
 
         [JsonPropertyName("value")]
         public decimal Value { get; set; } = 0m;
+    }
+
+    public class RealmSystemConfig
+    {
+        [JsonPropertyName("levelNames")]
+        public List<string> LevelNames { get; set; } = new() { "初期", "中期", "后期", "圆满" };
+
+        [JsonPropertyName("realmStages")]
+        public List<RealmStageConfig> RealmStages { get; set; } = new();
+
+        [JsonPropertyName("stageGoals")]
+        public List<RealmStageGoalConfig> StageGoals { get; set; } = new();
+
+        [JsonPropertyName("rebirthReadyGoalText")]
+        public string RebirthReadyGoalText { get; set; } = "";
+
+        [JsonPropertyName("rebirthPendingGoalText")]
+        public string RebirthPendingGoalText { get; set; } = "";
+    }
+
+    public class RealmStageConfig
+    {
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [JsonPropertyName("baseRequirement")]
+        public string BaseRequirement { get; set; } = "1";
+    }
+
+    public class RealmStageGoalConfig
+    {
+        [JsonPropertyName("realmId")]
+        public int RealmId { get; set; }
+
+        [JsonPropertyName("goalText")]
+        public string GoalText { get; set; } = "";
     }
 }

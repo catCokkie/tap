@@ -30,16 +30,23 @@ namespace ImmortalIdle
             }
 
             string stateJson = JsonSerializer.Serialize(state, jsonOptions);
+            string canonicalStateJson = CanonicalizeJson(stateJson);
             var envelope = new SaveEnvelope
             {
                 SchemaVersion = schemaVersion,
                 GameVersion = string.IsNullOrWhiteSpace(gameVersion) ? "0.0.0" : gameVersion,
                 SavedAt = state.LastSaveTime,
-                StateHash = SaveMigrationService.ComputeSha256(stateJson),
+                StateHash = SaveMigrationService.ComputeSha256(canonicalStateJson),
                 State = state
             };
 
             return JsonSerializer.Serialize(envelope, jsonOptions);
+        }
+
+        private static string CanonicalizeJson(string json)
+        {
+            using JsonDocument doc = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(doc.RootElement);
         }
 
         public static SaveMigrationService.DecodeResult TryDecodeSave(

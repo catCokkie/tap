@@ -377,6 +377,11 @@ namespace ImmortalIdle
                 return null;
             }
 
+            if (decode.ErrorCode == "hash_mismatch")
+            {
+                GD.PushWarning($"[SaveSystem] {sourceTag} 哈希校验不一致，已按兼容模式继续读取。");
+            }
+
             if (decode.Migrated)
             {
                 GD.Print($"[SaveSystem] 已迁移存档: v{decode.SourceSchemaVersion} -> v{CurrentSchemaVersion}");

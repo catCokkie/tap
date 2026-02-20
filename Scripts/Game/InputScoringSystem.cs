@@ -195,6 +195,11 @@ namespace ImmortalIdle
             {
                 case GlobalInputKind.KeyDown:
                 {
+                    if (IsIgnoredMenuKeyCode(sample.Data))
+                    {
+                        return 0m;
+                    }
+
                     string signature = $"gk:{sample.Data}";
                     if (!PassDebounce(signature, nowSeconds, 0.03))
                     {
@@ -236,6 +241,11 @@ namespace ImmortalIdle
         {
             if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo)
             {
+                if (IsIgnoredMenuKeyCode((int)keyEvent.Keycode))
+                {
+                    return 0m;
+                }
+
                 bool combo = keyEvent.CtrlPressed || keyEvent.AltPressed || keyEvent.ShiftPressed || keyEvent.MetaPressed;
                 string signature = $"k:{(long)keyEvent.Keycode}:{(combo ? 1 : 0)}";
                 if (!PassDebounce(signature, nowSeconds, 0.03))
@@ -272,6 +282,15 @@ namespace ImmortalIdle
             }
 
             return 0m;
+        }
+
+        private static bool IsIgnoredMenuKeyCode(int keyCode)
+        {
+            return keyCode == 0x20
+                || keyCode == 0x0D
+                || keyCode == (int)Key.Space
+                || keyCode == (int)Key.Enter
+                || keyCode == (int)Key.KpEnter;
         }
 
         private static bool IsJoypadEvent(InputEvent @event)

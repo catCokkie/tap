@@ -1,10 +1,10 @@
-﻿using Godot;
+using Godot;
 using System.Text;
 
 namespace ImmortalIdle.UI
 {
     /// <summary>
-    /// 炼丹房展示组件（统一卡片模板）
+    /// 炼丹房展示组件（统一卡片模板）。
     /// </summary>
     public partial class AlchemyDisplay : SystemCardDisplayBase
     {
@@ -87,6 +87,89 @@ namespace ImmortalIdle.UI
                     $"凝气丹 {ningqi:F0}（自动{(state.AutoUseNingqiPill ? "开" : "关")}，{ningqiBuffStatus}）\n" +
                     $"破境丹 {pojing:F0}（自动{(state.AutoUsePojingPill ? "开" : "关")}，{pojingBuffStatus}）";
             }
+        }
+
+        protected override string GetDetailDialogTitle()
+        {
+            return "炼丹房详情";
+        }
+
+        protected override string BuildCardHoverText()
+        {
+            GameState state = GameManager.Instance?.CurrentState;
+            if (state == null)
+            {
+                return base.BuildCardHoverText();
+            }
+
+            var builder = new StringBuilder();
+            builder.AppendLine("[ 炼丹房 ]");
+            builder.AppendLine();
+
+            if (state.CurrentRealmId < GameBalanceConfig.AlchemyUnlockRealmId)
+            {
+                builder.AppendLine("状态：未解锁（元婴期解锁）");
+            }
+            else
+            {
+                builder.AppendLine($"资源池：{state.AlchemyPool:F1}");
+                builder.AppendLine($"自动炼丹：{(state.AlchemyAutoEnabled ? "开启" : "关闭")}");
+                decimal ningqi = state.GetInventoryQuantity("ningqi_pill");
+                decimal pojing = state.GetInventoryQuantity("pojing_pill");
+                builder.AppendLine($"丹药：凝气 {ningqi:F0} | 破境 {pojing:F0}");
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("点击查看详情");
+            return builder.ToString();
+        }
+
+        protected override string BuildDetailDialogText()
+        {
+            GameState state = GameManager.Instance?.CurrentState;
+            if (state == null)
+            {
+                return "状态：未读取到游戏状态。";
+            }
+
+            var builder = new StringBuilder();
+            builder.AppendLine($"解锁状态：{(state.CurrentRealmId >= GameBalanceConfig.AlchemyUnlockRealmId ? "已解锁" : "未解锁")}");
+            builder.AppendLine($"资源池：{state.AlchemyPool:F1}");
+            builder.AppendLine($"自动炼丹：{(state.AlchemyAutoEnabled ? "开启" : "关闭")}");
+            builder.AppendLine($"自动服用凝气丹：{(state.AutoUseNingqiPill ? "开启" : "关闭")}");
+            builder.AppendLine($"自动服用破境丹：{(state.AutoUsePojingPill ? "开启" : "关闭")}");
+
+            if (state.CurrentRealmId < GameBalanceConfig.AlchemyUnlockRealmId)
+            {
+                builder.Append("说明：达到筑基期后解锁炼丹房。");
+                return builder.ToString();
+            }
+
+            state.EnsureInventoryInitialized();
+            AlchemyRecipeConfig recipe = ConfigLoader.GetAlchemyRecipe(state.ActiveAlchemyRecipeId)
+                ?? ConfigLoader.GetAlchemyRecipe(GameBalanceConfig.DefaultAlchemyRecipeId);
+            if (recipe == null)
+            {
+                builder.Append("丹方：未找到配置。");
+                return builder.ToString();
+            }
+
+            builder.AppendLine($"当前丹方：{recipe.Name}（{recipe.Id}）");
+            builder.AppendLine($"进度：{state.AlchemyProgress:F1}/{recipe.ProgressRequired:F1}");
+            builder.AppendLine($"产出：{recipe.OutputItemId} x{recipe.OutputAmount:F0}");
+            builder.AppendLine("材料需求：");
+            foreach (var kv in recipe.Inputs)
+            {
+                decimal have = state.GetInventoryQuantity(kv.Key);
+                builder.AppendLine($"- {ToDisplayName(kv.Key)}：{have:F0}/{kv.Value:F0}");
+            }
+
+            builder.AppendLine("丹药库存：");
+            builder.AppendLine($"- 凝气丹：{state.GetInventoryQuantity("ningqi_pill"):F0}");
+            builder.AppendLine($"- 破境丹：{state.GetInventoryQuantity("pojing_pill"):F0}");
+            builder.AppendLine($"凝气丹状态：{(state.NingqiPillRemainingSeconds > 0 ? $"生效中 {state.NingqiPillRemainingSeconds:F0}s" : "未生效")}");
+            builder.Append($"破境丹状态：{(state.PojingPillRemainingSeconds > 0 ? $"生效中 {state.PojingPillRemainingSeconds:F0}s" : "未生效")}");
+            return builder.ToString();
         }
 
         private static string ToDisplayName(string itemId)

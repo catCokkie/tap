@@ -56,7 +56,17 @@ namespace ImmortalIdle
                 return;
             }
 
-            if (state.AlchemyPool > 0m)
+            bool hasIngredientsForProgress = HasIngredients(state, recipe.Inputs);
+            if (!hasIngredientsForProgress && state.AlchemyPool > 0m)
+            {
+                if (_lackMaterialLogCooldown <= 0)
+                {
+                    _lackMaterialLogCooldown = 10;
+                    log?.AddLog("system", $"【炼丹房】草药不足，炼丹进度暂停（当前丹方：{recipe.Name}）");
+                }
+            }
+
+            if (state.AlchemyPool > 0m && hasIngredientsForProgress)
             {
                 decimal efficiency = GetAlchemyEfficiency(state) * state.GetEffectiveDebugProgressMultiplier();
                 state.AlchemyProgress += state.AlchemyPool * efficiency * (decimal)deltaSeconds;

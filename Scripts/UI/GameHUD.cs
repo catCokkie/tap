@@ -15,6 +15,8 @@ namespace ImmortalIdle.UI
     public partial class GameHUD : Control
     {
         private const double InputRoundTargetSeconds = 300.0;
+        private const float MainContentTopMinOffset = 124f;
+        private const float MainContentTopGap = 12f;
 
         [Export] private CultivationDisplay _cultivationDisplay;
         [Export] private LogDisplay _logDisplay;
@@ -47,6 +49,10 @@ namespace ImmortalIdle.UI
         private Label _allocationHintLabel;
         private Label _allocationTotalLabel;
         private OptionButton _herbStrategyOption;
+        private CheckBox _manualHerbSlotsCheckBox;
+        private readonly List<OptionButton> _herbSlotOptions = new();
+        private readonly List<string> _herbSlotIds = new();
+        private bool _updatingHerbSlotUi;
         private readonly List<string> _herbStrategyIds = new();
         private Label _rebirthCurrentBonusLabel;
         private Label _rebirthNextBonusLabel;
@@ -75,6 +81,15 @@ namespace ImmortalIdle.UI
         private Label _backpackSummaryLabel;
         private OptionButton _backpackCategoryOption;
         private LineEdit _backpackSearchEdit;
+        private AcceptDialog _subsystemPagesDialog;
+        private Label _cultivationPageLabel;
+        private Label _herbPageLabel;
+        private Label _alchemyPageLabel;
+        private Label _petPageLabel;
+        private Label _craftPageLabel;
+        private Label _inventoryPageLabel;
+        private TabContainer _subsystemTabs;
+        private readonly Dictionary<MenuButton, Dictionary<long, Action>> _subsystemMenuActions = new();
 
         private readonly Dictionary<string, HSlider> _allocationSliders = new();
         private readonly Dictionary<string, Label> _allocationValueLabels = new();
@@ -92,6 +107,7 @@ namespace ImmortalIdle.UI
         private RoundSnapshot _roundStartSnapshot;
         private readonly Dictionary<int, RoundMetrics> _roundResults = new();
         private float _lastViewportWidth = -1f;
+        private int _lastLayoutRealmId = -1;
 
         private readonly struct RoundSnapshot
         {
@@ -149,6 +165,8 @@ namespace ImmortalIdle.UI
             ApplyDebugVisibility();
             EnsureRebirthGuideBanner();
             EnsureMainLayoutContainers();
+            EnsureSubsystemQuickEntryButtons();
+            SimplifyBottomActionBar();
             EnsureInputStatsButton();
             _runtimePerformanceTracker ??= new RuntimePerformanceTracker();
             ApplyUiPolish();
@@ -213,6 +231,11 @@ namespace ImmortalIdle.UI
             if (_backpackDialog != null && _backpackDialog.Visible)
             {
                 RefreshBackpackView();
+            }
+
+            if (_subsystemPagesDialog != null && _subsystemPagesDialog.Visible)
+            {
+                RefreshSubsystemPagesView();
             }
 
             if (_testMenuDialog != null && _testMenuDialog.Visible)
@@ -283,21 +306,15 @@ namespace ImmortalIdle.UI
                 AddChild(_topMenuBar);
             }
 
-            _featureMenuButton = EnsureTopMenuButton(_featureMenuButton, "FeatureMenuButton", "功能菜单");
-            _gameMenuButton = EnsureTopMenuButton(_gameMenuButton, "GameMenuButton", "游戏菜单");
-            _testMenuButton = EnsureTopMenuButton(_testMenuButton, "TestMenuButton", "测试菜单");
+            _featureMenuButton = EnsureTopMenuButton(_featureMenuButton, "FeatureMenuButton", "系统");
+            _gameMenuButton = EnsureTopMenuButton(_gameMenuButton, "GameMenuButton", "存档");
+            _testMenuButton = EnsureTopMenuButton(_testMenuButton, "TestMenuButton", "调试");
 
             _featureMenuButton.Pressed += OnFeatureMenuPressed;
             _gameMenuButton.Pressed += OnGameMenuPressed;
             _testMenuButton.Pressed += OnTestMenuPressed;
             ApplyDebugVisibility();
-
-            // 给顶部菜单留出空间，避免与内容重叠。
-            var mainContainer = GetNodeOrNull<Control>("MainContainer");
-            if (mainContainer != null && mainContainer.OffsetTop < 92)
-            {
-                mainContainer.OffsetTop = 92;
-            }
+            UpdateMainContainerTopOffset();
         }
 
         private void EnsureVersionLabel()
@@ -428,20 +445,28 @@ namespace ImmortalIdle.UI
             Vector2 viewportSize = GetViewportRect().Size;
             float width = viewportSize.X;
             float height = viewportSize.Y;
+            int currentRealmId = GameManager.Instance?.CurrentState?.CurrentRealmId ?? -1;
             bool compact = width < 1080f;
-            if (!force && Math.Abs(width - _lastViewportWidth) < 4f && compact == _compactMainLayout)
+            if (!force
+                && Math.Abs(width - _lastViewportWidth) < 4f
+                && compact == _compactMainLayout
+                && currentRealmId == _lastLayoutRealmId)
             {
                 return;
             }
 
             _lastViewportWidth = width;
             _compactMainLayout = compact;
+            _lastLayoutRealmId = currentRealmId;
 
             ResolveMainCards();
             if (_cultivationCard == null || _herbCard == null || _alchemyCard == null || _petCard == null || _craftCard == null || _logCard == null)
             {
                 return;
             }
+
+            ApplySubsystemCardVisibility();
+            bool hasVisibleRightCards = _herbCard.Visible || _alchemyCard.Visible || _petCard.Visible || _craftCard.Visible;
 
             if (compact)
             {
@@ -452,11 +477,10 @@ namespace ImmortalIdle.UI
                 MoveControlTo(_petCard, _leftColumn);
                 MoveControlTo(_craftCard, _leftColumn);
                 MoveControlTo(_logCard, _leftColumn);
-                _logCard.SizeFlagsVertical = SizeFlags.ShrinkBegin;
             }
             else
             {
-                _rightColumn.Visible = true;
+                _rightColumn.Visible = hasVisibleRightCards;
                 int splitMin = 380;
                 int splitMax = Math.Max(splitMin, (int)width - 380);
                 int desiredSplit = (int)(width * 0.56f);
@@ -468,17 +492,47 @@ namespace ImmortalIdle.UI
                 MoveControlTo(_alchemyCard, _rightColumn);
                 MoveControlTo(_petCard, _rightColumn);
                 MoveControlTo(_craftCard, _rightColumn);
-                _logCard.SizeFlagsVertical = SizeFlags.ExpandFill;
             }
 
             bool shortHeight = height < 760f;
             _cultivationCard.CustomMinimumSize = compact
-                ? new Vector2(0, shortHeight ? 160 : 180)
-                : new Vector2(0, shortHeight ? 180 : 210);
+                ? new Vector2(0, shortHeight ? 268 : 308)
+                : new Vector2(0, shortHeight ? 286 : 336);
             _herbCard.CustomMinimumSize = new Vector2(0, compact ? (shortHeight ? 130 : 170) : (shortHeight ? 128 : 176));
             _alchemyCard.CustomMinimumSize = new Vector2(0, compact ? (shortHeight ? 126 : 165) : (shortHeight ? 124 : 172));
             _petCard.CustomMinimumSize = new Vector2(0, compact ? (shortHeight ? 126 : 165) : (shortHeight ? 124 : 172));
             _craftCard.CustomMinimumSize = new Vector2(0, compact ? (shortHeight ? 126 : 165) : (shortHeight ? 124 : 172));
+            _logCard.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+            _logCard.CustomMinimumSize = new Vector2(0, compact ? (shortHeight ? 104 : 132) : (shortHeight ? 116 : 148));
+        }
+
+        private void ApplySubsystemCardVisibility()
+        {
+            GameState state = GameManager.Instance?.CurrentState;
+            if (state == null)
+            {
+                return;
+            }
+
+            if (_herbCard != null)
+            {
+                _herbCard.Visible = state.CurrentRealmId >= GameBalanceConfig.HerbUnlockRealmId;
+            }
+
+            if (_alchemyCard != null)
+            {
+                _alchemyCard.Visible = state.CurrentRealmId >= GameBalanceConfig.AlchemyUnlockRealmId;
+            }
+
+            if (_petCard != null)
+            {
+                _petCard.Visible = state.CurrentRealmId >= GameBalanceConfig.SpiritPetUnlockRealmId;
+            }
+
+            if (_craftCard != null)
+            {
+                _craftCard.Visible = state.CurrentRealmId >= GameBalanceConfig.CraftUnlockRealmId;
+            }
         }
 
         private void ResolveMainCards()
@@ -489,6 +543,115 @@ namespace ImmortalIdle.UI
             _petCard ??= FindNodeRecursive<Control>(this, "SpiritPetDisplay");
             _craftCard ??= FindNodeRecursive<Control>(this, "CraftDisplay");
             _logCard ??= FindNodeRecursive<Control>(this, "LogDisplay");
+        }
+
+        private void EnsureSubsystemQuickEntryButtons()
+        {
+            ResolveMainCards();
+            AddSubsystemEntryButton(
+                _herbCard,
+                "HerbSubsystemMenu",
+                new (string Text, Action Handler)[]
+                {
+                    ("打开灵药园页面", () => OpenSubsystemPage(1)),
+                    ("打开背包", ShowBackpackDialog),
+                    ("输入分配设置", ShowAllocationSettingsDialog)
+                });
+            AddSubsystemEntryButton(
+                _alchemyCard,
+                "AlchemySubsystemMenu",
+                new (string Text, Action Handler)[]
+                {
+                    ("打开炼丹房页面", () => OpenSubsystemPage(2)),
+                    ("打开背包", ShowBackpackDialog),
+                    ("保存游戏", SaveGameNow)
+                });
+            AddSubsystemEntryButton(
+                _petCard,
+                "PetSubsystemMenu",
+                new (string Text, Action Handler)[]
+                {
+                    ("打开灵宠园页面", () => OpenSubsystemPage(3)),
+                    ("查看灵宠概览", ShowSpiritPetSummary),
+                    ("输入分配设置", ShowAllocationSettingsDialog)
+                });
+            AddSubsystemEntryButton(
+                _craftCard,
+                "CraftSubsystemMenu",
+                new (string Text, Action Handler)[]
+                {
+                    ("打开炼器坊页面", () => OpenSubsystemPage(4)),
+                    ("打开背包", ShowBackpackDialog),
+                    ("保存游戏", SaveGameNow)
+                });
+        }
+
+        private void AddSubsystemEntryButton(
+            Control card,
+            string menuName,
+            (string Text, Action Handler)[] items)
+        {
+            if (card == null)
+            {
+                return;
+            }
+
+            var vbox = card.GetNodeOrNull<VBoxContainer>("Panel/VBox");
+            if (vbox == null)
+            {
+                return;
+            }
+
+            var menuButton = vbox.GetNodeOrNull<MenuButton>(menuName);
+            if (menuButton == null)
+            {
+                menuButton = new MenuButton
+                {
+                    Name = menuName,
+                    Text = "子菜单",
+                    CustomMinimumSize = new Vector2(0, 28)
+                };
+                vbox.AddChild(menuButton);
+            }
+
+            PopupMenu popup = menuButton.GetPopup();
+            popup.Clear();
+
+            var actionMap = new Dictionary<long, Action>();
+            for (int i = 0; i < items.Length; i++)
+            {
+                popup.AddItem(items[i].Text, i);
+                actionMap[i] = items[i].Handler;
+            }
+            _subsystemMenuActions[menuButton] = actionMap;
+
+            if (!menuButton.HasMeta("sub_menu_bound"))
+            {
+                menuButton.SetMeta("sub_menu_bound", true);
+                popup.IdPressed += id => OnSubsystemMenuPressed(menuButton, id);
+            }
+        }
+
+        private void OnSubsystemMenuPressed(MenuButton menuButton, long itemId)
+        {
+            if (_subsystemMenuActions.TryGetValue(menuButton, out Dictionary<long, Action> map)
+                && map.TryGetValue(itemId, out Action handler))
+            {
+                handler?.Invoke();
+            }
+        }
+
+        private void SimplifyBottomActionBar()
+        {
+            var buttonContainer = GetNodeOrNull<Control>("MainContainer/ButtonContainer");
+            if (buttonContainer == null)
+            {
+                return;
+            }
+
+            buttonContainer.Visible = false;
+            buttonContainer.CustomMinimumSize = Vector2.Zero;
+            buttonContainer.SizeFlagsVertical = SizeFlags.ShrinkBegin;
         }
 
         private static T FindNodeRecursive<T>(Node root, string name) where T : Node
@@ -549,6 +712,14 @@ namespace ImmortalIdle.UI
                 mainContainer.AddThemeConstantOverride("separation", 14);
             }
 
+            // 确保底部按钮容器有足够的高度空间
+            var buttonContainer = GetNodeOrNull<HBoxContainer>("MainContainer/ButtonContainer");
+            if (buttonContainer != null)
+            {
+                buttonContainer.CustomMinimumSize = new Vector2(0, 50);
+                buttonContainer.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+            }
+
             StyleBoxFlat panelStyle = new StyleBoxFlat
             {
                 BgColor = new Color(0.08f, 0.10f, 0.12f, 0.95f),
@@ -603,7 +774,7 @@ namespace ImmortalIdle.UI
                 progressBar.AddThemeStyleboxOverride("background", progressBg);
                 progressBar.AddThemeStyleboxOverride("fill", progressFill);
                 progressBar.CustomMinimumSize = new Vector2(progressBar.CustomMinimumSize.X, Math.Max(progressBar.CustomMinimumSize.Y, 22));
-                progressBar.ShowPercentage = false;
+                progressBar.ShowPercentage = ShouldShowProgressPercentage(progressBar);
             }
 
             foreach (Button button in GetAllDescendantsOfType<Button>(this))
@@ -655,6 +826,33 @@ namespace ImmortalIdle.UI
             }
         }
 
+        private static bool ShouldShowProgressPercentage(ProgressBar progressBar)
+        {
+            if (progressBar == null)
+            {
+                return false;
+            }
+
+            Node current = progressBar;
+            while (current != null)
+            {
+                string name = current.Name.ToString();
+                if (name == "HerbGardenDisplay" || name == "AlchemyDisplay" || name == "SpiritPetDisplay" || name == "CraftDisplay")
+                {
+                    return true;
+                }
+
+                if (name == "CultivationDisplay" || name == "LogDisplay")
+                {
+                    return false;
+                }
+
+                current = current.GetParent();
+            }
+
+            return false;
+        }
+
         private void EnsureRebirthGuideBanner()
         {
             _rebirthGuideBanner = GetNodeOrNull<PanelContainer>("RebirthGuideBanner");
@@ -667,7 +865,7 @@ namespace ImmortalIdle.UI
                     OffsetLeft = 20,
                     OffsetTop = 56,
                     OffsetRight = -20,
-                    OffsetBottom = 92,
+                    OffsetBottom = 108,
                     Visible = false
                 };
                 AddChild(_rebirthGuideBanner);
@@ -725,7 +923,7 @@ namespace ImmortalIdle.UI
             if (!hasGuide)
             {
                 _rebirthGuideCollapsed = false;
-                AdjustMainContainerOffset(92);
+                UpdateMainContainerTopOffset();
                 return;
             }
 
@@ -734,10 +932,10 @@ namespace ImmortalIdle.UI
                 : $"轮回目标：{guideText}";
             _rebirthGuideToggleButton.Text = _rebirthGuideCollapsed ? "展开" : "收起";
 
-            AdjustMainContainerOffset(132);
+            UpdateMainContainerTopOffset();
         }
 
-        private void AdjustMainContainerOffset(float minTop)
+        private void UpdateMainContainerTopOffset()
         {
             var mainContainer = GetNodeOrNull<Control>("MainContainer");
             if (mainContainer == null)
@@ -745,13 +943,15 @@ namespace ImmortalIdle.UI
                 return;
             }
 
-            if (mainContainer.OffsetTop < minTop)
+            float topOffset = Math.Max(MainContentTopMinOffset, _topMenuBar?.OffsetBottom + MainContentTopGap ?? MainContentTopMinOffset);
+            if (_rebirthGuideBanner != null && _rebirthGuideBanner.Visible)
             {
-                mainContainer.OffsetTop = minTop;
+                topOffset = Math.Max(topOffset, _rebirthGuideBanner.OffsetBottom + MainContentTopGap);
             }
-            else if (minTop == 92 && mainContainer.OffsetTop > 92)
+
+            if (Math.Abs(mainContainer.OffsetTop - topOffset) > 0.1f)
             {
-                mainContainer.OffsetTop = 92;
+                mainContainer.OffsetTop = topOffset;
             }
         }
 
@@ -760,6 +960,7 @@ namespace ImmortalIdle.UI
             current = _topMenuBar.GetNodeOrNull<Button>(name);
             if (current != null)
             {
+                current.FocusMode = FocusModeEnum.None;
                 return current;
             }
 
@@ -767,7 +968,8 @@ namespace ImmortalIdle.UI
             {
                 Name = name,
                 Text = text,
-                CustomMinimumSize = new Vector2(120, 36)
+                CustomMinimumSize = new Vector2(120, 36),
+                FocusMode = FocusModeEnum.None
             };
             _topMenuBar.AddChild(current);
             return current;
@@ -814,7 +1016,7 @@ namespace ImmortalIdle.UI
         {
             _featureMenuDialog = new AcceptDialog
             {
-                Title = "功能菜单",
+                Title = "系统与功能",
                 DialogText = "",
                 OkButtonText = "关闭"
             };
@@ -830,17 +1032,17 @@ namespace ImmortalIdle.UI
             actionRow.AddThemeConstantOverride("separation", 8);
             root.AddChild(actionRow);
 
+            var pagesBtn = new Button { Text = "子系统页面", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            pagesBtn.Pressed += ShowSubsystemPagesDialog;
+            actionRow.AddChild(pagesBtn);
+
             var backpackBtn = new Button { Text = "打开背包", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             backpackBtn.Pressed += ShowBackpackDialog;
             actionRow.AddChild(backpackBtn);
 
-            var herbBtn = new Button { Text = "灵药园概览", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            herbBtn.Pressed += ShowHerbInventorySummary;
-            actionRow.AddChild(herbBtn);
-
-            var petBtn = new Button { Text = "灵宠园概览", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            petBtn.Pressed += ShowSpiritPetSummary;
-            actionRow.AddChild(petBtn);
+            var allocationBtn = new Button { Text = "输入分配", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            allocationBtn.Pressed += ShowAllocationSettingsDialog;
+            actionRow.AddChild(allocationBtn);
 
             _featureMenuLabel = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
             root.AddChild(_featureMenuLabel);
@@ -865,7 +1067,7 @@ namespace ImmortalIdle.UI
         {
             _gameMenuDialog = new AcceptDialog
             {
-                Title = "游戏菜单",
+                Title = "存档与流程",
                 DialogText = "",
                 OkButtonText = "关闭"
             };
@@ -911,7 +1113,7 @@ namespace ImmortalIdle.UI
         {
             _testMenuDialog = new AcceptDialog
             {
-                Title = "测试菜单",
+                Title = "调试与测试",
                 DialogText = "",
                 OkButtonText = "关闭"
             };
@@ -1272,6 +1474,366 @@ namespace ImmortalIdle.UI
 
             RefreshBackpackView();
             _backpackDialog.PopupCentered(new Vector2I(560, 420));
+        }
+
+        private void ShowSubsystemPagesDialog()
+        {
+            if (_subsystemPagesDialog == null)
+            {
+                BuildSubsystemPagesDialog();
+            }
+
+            RefreshSubsystemPagesView();
+            _subsystemPagesDialog.PopupCentered(new Vector2I(840, 620));
+        }
+
+        private void OpenSubsystemPage(int tabIndex)
+        {
+            ShowSubsystemPagesDialog();
+            if (_subsystemTabs == null || _subsystemTabs.GetTabCount() <= 0)
+            {
+                return;
+            }
+
+            int clamped = Math.Clamp(tabIndex, 0, _subsystemTabs.GetTabCount() - 1);
+            _subsystemTabs.CurrentTab = clamped;
+        }
+
+        private void BuildSubsystemPagesDialog()
+        {
+            _subsystemPagesDialog = new AcceptDialog
+            {
+                Title = "子系统页面",
+                DialogText = "",
+                OkButtonText = "关闭"
+            };
+            _subsystemPagesDialog.CloseRequested += () => _subsystemPagesDialog.Hide();
+            AddChild(_subsystemPagesDialog);
+
+            var root = new VBoxContainer
+            {
+                CustomMinimumSize = new Vector2(780, 560),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                SizeFlagsVertical = SizeFlags.ExpandFill
+            };
+            root.AddThemeConstantOverride("separation", 8);
+            _subsystemPagesDialog.AddChild(root);
+
+            root.AddChild(new Label
+            {
+                Text = "集中展示各子系统状态、进度与关键资源，便于联动调优与验收。",
+                AutowrapMode = TextServer.AutowrapMode.WordSmart
+            });
+
+            var actionRow = new HBoxContainer();
+            actionRow.AddThemeConstantOverride("separation", 8);
+            root.AddChild(actionRow);
+
+            var allocationBtn = new Button { Text = "输入分配设置", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            allocationBtn.Pressed += ShowAllocationSettingsDialog;
+            actionRow.AddChild(allocationBtn);
+
+            var backpackBtn = new Button { Text = "打开背包", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            backpackBtn.Pressed += ShowBackpackDialog;
+            actionRow.AddChild(backpackBtn);
+
+            _subsystemTabs = new TabContainer
+            {
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                SizeFlagsVertical = SizeFlags.ExpandFill
+            };
+            root.AddChild(_subsystemTabs);
+
+            _cultivationPageLabel = CreateSubsystemPageLabel(_subsystemTabs, "修炼系统");
+            _herbPageLabel = CreateSubsystemPageLabel(_subsystemTabs, "灵药园");
+            _alchemyPageLabel = CreateSubsystemPageLabel(_subsystemTabs, "炼丹房");
+            _petPageLabel = CreateSubsystemPageLabel(_subsystemTabs, "灵宠园");
+            _craftPageLabel = CreateSubsystemPageLabel(_subsystemTabs, "炼器坊");
+            _inventoryPageLabel = CreateSubsystemPageLabel(_subsystemTabs, "库存");
+        }
+
+        private static Label CreateSubsystemPageLabel(TabContainer parent, string tabTitle)
+        {
+            var page = new VBoxContainer
+            {
+                Name = tabTitle,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                SizeFlagsVertical = SizeFlags.ExpandFill
+            };
+            page.AddThemeConstantOverride("separation", 6);
+            parent.AddChild(page);
+
+            var label = new Label
+            {
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                SizeFlagsVertical = SizeFlags.ExpandFill,
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            page.AddChild(label);
+            return label;
+        }
+
+        private void RefreshSubsystemPagesView()
+        {
+            var state = GameManager.Instance?.CurrentState;
+            if (state == null)
+            {
+                return;
+            }
+
+            state.EnsureHerbGardenInitialized();
+            state.EnsureInventoryInitialized();
+
+            if (_cultivationPageLabel != null)
+            {
+                _cultivationPageLabel.Text = BuildCultivationPageText(state);
+            }
+
+            if (_herbPageLabel != null)
+            {
+                _herbPageLabel.Text = BuildHerbPageText(state);
+            }
+
+            if (_alchemyPageLabel != null)
+            {
+                _alchemyPageLabel.Text = BuildAlchemyPageText(state);
+            }
+
+            if (_petPageLabel != null)
+            {
+                _petPageLabel.Text = BuildPetPageText(state);
+            }
+
+            if (_craftPageLabel != null)
+            {
+                _craftPageLabel.Text = BuildCraftPageText(state);
+            }
+
+            if (_inventoryPageLabel != null)
+            {
+                _inventoryPageLabel.Text = BuildInventoryPageText(state);
+            }
+        }
+
+        private static string BuildCultivationPageText(GameState state)
+        {
+            BigInteger requirement = state.GetBreakthroughRequirement();
+            double progress = CalculateProgressPercent(state.CurrentCultivation, requirement);
+            string canBreakthrough = state.CanBreakthrough() ? "可突破" : "不可突破";
+            string canRebirth = state.CanRebirth() ? "可转世" : "未满足";
+
+            return
+                $"境界：{state.GetCurrentRealmName()}\n" +
+                $"修为：{GameManager.FormatNumber(state.CurrentCultivation)} / {GameManager.FormatNumber(requirement)}（{progress:F1}%）\n" +
+                $"突破状态：{canBreakthrough}\n" +
+                $"转世状态：{canRebirth} | 已转世：{state.PrestigeCount}\n" +
+                $"总输入：{state.TotalInputEvents} 次\n" +
+                $"有效输入转化率：x{state.GetEffectiveInputConversionRate():F2}\n" +
+                $"每分钟输入上限：{state.GetEffectiveInputMinuteCap()}\n" +
+                $"阶段目标：{state.GetStageGoalText()}";
+        }
+
+        private static string BuildHerbPageText(GameState state)
+        {
+            var builder = new StringBuilder();
+            bool unlocked = state.CurrentRealmId >= GameBalanceConfig.HerbUnlockRealmId;
+            builder.AppendLine($"解锁状态：{(unlocked ? "已解锁" : "未解锁（筑基期）")}");
+            builder.AppendLine($"资源池：{state.HerbGardenPool:F1}");
+            builder.AppendLine($"策略：{ToHerbStrategyText(state.ActiveHerbStrategy)}（{state.ActiveHerbStrategy}）");
+
+            if (!unlocked)
+            {
+                return builder.ToString().TrimEnd();
+            }
+
+            builder.AppendLine($"药槽数量：{state.HerbSlots.Count}");
+            for (int i = 0; i < state.HerbSlots.Count; i++)
+            {
+                var slot = state.HerbSlots[i];
+                decimal requirement = Math.Max(1m, slot.GrowthRequirement);
+                decimal percent = Math.Clamp(slot.GrowthProgress / requirement * 100m, 0m, 100m);
+                builder.AppendLine(
+                    $"药槽{i + 1}：{ToItemDisplayName(slot.HerbId)} | 进度 {slot.GrowthProgress:F1}/{slot.GrowthRequirement:F1}（{percent:F1}%） | 自动收获 {(slot.AutoHarvestEnabled ? "开" : "关")}");
+            }
+
+            builder.AppendLine("药材库存：");
+            builder.AppendLine($"凝气草：{state.GetInventoryQuantity("ningqi_grass"):F0}");
+            builder.AppendLine($"青灵叶：{state.GetInventoryQuantity("qingling_leaf"):F0}");
+            builder.AppendLine($"赤炎果：{state.GetInventoryQuantity("chiyan_fruit"):F0}");
+            builder.AppendLine($"寒髓花：{state.GetInventoryQuantity("hansui_flower"):F0}");
+            builder.AppendLine($"玄心芝：{state.GetInventoryQuantity("xuanxin_zhi"):F0}");
+            builder.Append($"星尘莲：{state.GetInventoryQuantity("xingchen_lotus"):F0}");
+            return builder.ToString();
+        }
+
+        private static string BuildAlchemyPageText(GameState state)
+        {
+            var builder = new StringBuilder();
+            bool unlocked = state.CurrentRealmId >= GameBalanceConfig.AlchemyUnlockRealmId;
+            builder.AppendLine($"解锁状态：{(unlocked ? "已解锁" : "未解锁（元婴期）")}");
+            builder.AppendLine($"资源池：{state.AlchemyPool:F1}");
+            builder.AppendLine($"自动炼丹：{(state.AlchemyAutoEnabled ? "开启" : "关闭")}");
+            builder.AppendLine($"自动服用：凝气丹 {(state.AutoUseNingqiPill ? "开" : "关")} | 破境丹 {(state.AutoUsePojingPill ? "开" : "关")}");
+
+            if (!unlocked)
+            {
+                return builder.ToString().TrimEnd();
+            }
+
+            AlchemyRecipeConfig recipe = ConfigLoader.GetAlchemyRecipe(state.ActiveAlchemyRecipeId)
+                ?? ConfigLoader.GetAlchemyRecipe(GameBalanceConfig.DefaultAlchemyRecipeId);
+            if (recipe != null)
+            {
+                builder.AppendLine($"当前丹方：{recipe.Name}（{recipe.Id}）");
+                builder.AppendLine($"进度：{state.AlchemyProgress:F1}/{recipe.ProgressRequired:F1}");
+                builder.AppendLine($"产出：{ToItemDisplayName(recipe.OutputItemId)} x{recipe.OutputAmount:F0}");
+                builder.AppendLine("材料需求：");
+                foreach (var kv in recipe.Inputs)
+                {
+                    decimal have = state.GetInventoryQuantity(kv.Key);
+                    builder.AppendLine($"{ToItemDisplayName(kv.Key)}：{have:F0}/{kv.Value:F0}");
+                }
+            }
+
+            builder.AppendLine($"凝气丹库存：{state.GetInventoryQuantity("ningqi_pill"):F0} | 状态 {(state.NingqiPillRemainingSeconds > 0 ? $"生效 {state.NingqiPillRemainingSeconds:F0}s" : "未生效")}");
+            builder.Append($"破境丹库存：{state.GetInventoryQuantity("pojing_pill"):F0} | 状态 {(state.PojingPillRemainingSeconds > 0 ? $"生效 {state.PojingPillRemainingSeconds:F0}s" : "未生效")}");
+            return builder.ToString();
+        }
+
+        private static string BuildPetPageText(GameState state)
+        {
+            var builder = new StringBuilder();
+            bool unlocked = state.CurrentRealmId >= GameBalanceConfig.SpiritPetUnlockRealmId;
+            builder.AppendLine($"解锁状态：{(unlocked ? "已解锁" : "未解锁（灵寂期）")}");
+            builder.AppendLine($"资源池：{state.SpiritPetPool:F1}");
+            builder.AppendLine($"自动捕捉：{(state.SpiritPetAutoEnabled ? "开启" : "关闭")}");
+            builder.AppendLine($"容量：{state.SpiritPets.Count}/{state.GetSpiritPetCapacity()}");
+            builder.AppendLine($"捕捉进度：{state.SpiritPetProgress:F1}/{state.SpiritPetCaptureRequirement:F1}");
+
+            if (!unlocked)
+            {
+                return builder.ToString().TrimEnd();
+            }
+
+            builder.AppendLine($"总加成：输入上限 +{state.GetSpiritPetInputCapBonus():F0}");
+            builder.AppendLine($"总加成：输入转化 +{state.GetSpiritPetInputRateBonus() * 100m:F1}%");
+            builder.AppendLine($"总加成：灵药成长 +{state.GetSpiritPetHerbGrowthBonus() * 100m:F1}%");
+            builder.AppendLine("灵宠列表：");
+
+            if (state.SpiritPets.Count == 0)
+            {
+                builder.Append("暂无");
+                return builder.ToString();
+            }
+
+            for (int i = 0; i < state.SpiritPets.Count; i++)
+            {
+                var pet = state.SpiritPets[i];
+                builder.AppendLine($"{i + 1}. {pet.Name} Lv{pet.Level} | 稀有度 {pet.Rarity} | 词条 {pet.BonusType}+{pet.BaseBonusValue}");
+            }
+
+            return builder.ToString().TrimEnd();
+        }
+
+        private static string BuildCraftPageText(GameState state)
+        {
+            var builder = new StringBuilder();
+            bool unlocked = state.CurrentRealmId >= GameBalanceConfig.CraftUnlockRealmId;
+            builder.AppendLine($"解锁状态：{(unlocked ? "已解锁" : "未解锁（元婴期）")}");
+            builder.AppendLine($"资源池：{state.CraftPool:F1}");
+            builder.AppendLine($"自动炼器：{(state.CraftAutoEnabled ? "开启" : "关闭")}");
+            builder.AppendLine($"炼器加成：输入转化 +{state.GetCraftInputRateBonus() * 100m:F1}%（Lv{state.CraftRefineLevel}）");
+            builder.AppendLine($"炼器加成：突破需求 -{state.GetCraftBreakthroughReductionBonus() * 100m:F1}%（Lv{state.CraftRealmRefineLevel}）");
+
+            if (!unlocked)
+            {
+                return builder.ToString().TrimEnd();
+            }
+
+            CraftRecipeConfig recipe = ConfigLoader.GetCraftRecipe(state.ActiveCraftRecipeId)
+                ?? ConfigLoader.GetCraftRecipe(GameBalanceConfig.DefaultCraftRecipeId);
+            if (recipe != null)
+            {
+                builder.AppendLine($"当前图谱：{recipe.Name}（{recipe.Id}）");
+                builder.AppendLine($"进度：{state.CraftProgress:F1}/{recipe.ProgressRequired:F1}");
+                builder.AppendLine($"产出：{ToItemDisplayName(recipe.OutputItemId)} x{recipe.OutputAmount:F0}");
+                builder.AppendLine("材料需求：");
+                foreach (var kv in recipe.Inputs)
+                {
+                    decimal have = state.GetInventoryQuantity(kv.Key);
+                    builder.AppendLine($"{ToItemDisplayName(kv.Key)}：{have:F0}/{kv.Value:F0}");
+                }
+            }
+
+            builder.AppendLine("关键库存：");
+            builder.AppendLine($"御风碎片：{state.GetInventoryQuantity("craft_shard"):F0}");
+            builder.AppendLine($"御风核心：{state.GetInventoryQuantity("craft_core"):F0}");
+            builder.AppendLine($"镇岳碎片：{state.GetInventoryQuantity("craft_realm_shard"):F0}");
+            builder.Append($"镇岳核心：{state.GetInventoryQuantity("craft_realm_core"):F0}");
+            return builder.ToString();
+        }
+
+        private static string BuildInventoryPageText(GameState state)
+        {
+            int herbKinds = CountNonZeroByCategory(state, "herb");
+            int pillKinds = CountNonZeroByCategory(state, "pill");
+            int materialKinds = CountMaterialCount(state);
+            return
+                $"非空物品：{herbKinds + pillKinds + materialKinds}\n" +
+                $"药材种类：{herbKinds}\n" +
+                $"{BuildInventoryLine(state, "herb")}\n\n" +
+                $"丹药种类：{pillKinds}\n" +
+                $"{BuildInventoryLine(state, "pill")}\n\n" +
+                $"材料种类：{materialKinds}\n" +
+                $"{BuildMaterialInventoryLine(state)}";
+        }
+
+        private static string ToHerbStrategyText(string strategyId)
+        {
+            HerbStrategyConfig config = ConfigLoader.GetHerbStrategy(strategyId);
+            if (config != null && !string.IsNullOrWhiteSpace(config.Name))
+            {
+                return config.Name;
+            }
+
+            return string.IsNullOrWhiteSpace(strategyId) ? "未设置" : strategyId;
+        }
+
+        private static string ToItemDisplayName(string itemId)
+        {
+            return itemId switch
+            {
+                "ningqi_grass" => "凝气草",
+                "qingling_leaf" => "青灵叶",
+                "chiyan_fruit" => "赤炎果",
+                "hansui_flower" => "寒髓花",
+                "xuanxin_zhi" => "玄心芝",
+                "xingchen_lotus" => "星尘莲",
+                "ningqi_pill" => "凝气丹",
+                "pojing_pill" => "破境丹",
+                "craft_shard" => "御风碎片",
+                "craft_core" => "御风核心",
+                "craft_realm_shard" => "镇岳碎片",
+                "craft_realm_core" => "镇岳核心",
+                _ => itemId
+            };
+        }
+
+        private static double CalculateProgressPercent(BigInteger current, BigInteger requirement)
+        {
+            if (requirement <= 0 || current <= 0)
+            {
+                return 0;
+            }
+
+            if (current >= requirement)
+            {
+                return 100;
+            }
+
+            BigInteger scaled = current * 10000 / requirement;
+            return (double)scaled / 100.0;
         }
 
         private void RefreshBackpackView()
@@ -2109,6 +2671,13 @@ namespace ImmortalIdle.UI
             PopulateHerbStrategyOptions();
             root.AddChild(_herbStrategyOption);
 
+            _manualHerbSlotsCheckBox = new CheckBox { Text = "手动配置灵药槽位（覆盖策略）" };
+            _manualHerbSlotsCheckBox.Toggled += OnManualHerbSlotsToggled;
+            root.AddChild(_manualHerbSlotsCheckBox);
+
+            root.AddChild(new Label { Text = "灵药槽位配置" });
+            BuildHerbSlotEditors(root);
+
             AddAllocationSliderRow(root, "main", "主修炼");
             AddAllocationSliderRow(root, "herb", "灵药园");
             AddAllocationSliderRow(root, "pet", "灵宠园");
@@ -2166,8 +2735,64 @@ namespace ImmortalIdle.UI
             _allocationValueLabels[key] = valueLabel;
         }
 
+        private void BuildHerbSlotEditors(VBoxContainer root)
+        {
+            _herbSlotOptions.Clear();
+            _herbSlotIds.Clear();
+
+            var herbRules = ConfigLoader.GetAllHerbRules();
+            foreach (HerbRuleConfig rule in herbRules)
+            {
+                if (!string.IsNullOrWhiteSpace(rule.HerbId))
+                {
+                    _herbSlotIds.Add(rule.HerbId);
+                }
+            }
+
+            if (_herbSlotIds.Count == 0)
+            {
+                _herbSlotIds.Add("ningqi_grass");
+                _herbSlotIds.Add("qingling_leaf");
+            }
+
+            int slotCount = Math.Max(1, ConfigLoader.GetHerbActiveSlotCount());
+            for (int i = 0; i < slotCount; i++)
+            {
+                int slotIndex = i;
+                var row = new HBoxContainer();
+                row.AddThemeConstantOverride("separation", 8);
+                root.AddChild(row);
+
+                row.AddChild(new Label
+                {
+                    Text = $"药槽{slotIndex + 1}",
+                    CustomMinimumSize = new Vector2(72, 0)
+                });
+
+                var option = new OptionButton
+                {
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill
+                };
+                for (int idx = 0; idx < _herbSlotIds.Count; idx++)
+                {
+                    string herbId = _herbSlotIds[idx];
+                    option.AddItem(ToItemDisplayName(herbId), idx);
+                }
+                option.ItemSelected += _ =>
+                {
+                    if (_updatingHerbSlotUi)
+                    {
+                        return;
+                    }
+                };
+                row.AddChild(option);
+                _herbSlotOptions.Add(option);
+            }
+        }
+
         private void RefreshAllocationDialog(GameState state)
         {
+            state.EnsureHerbGardenInitialized();
             bool unlocked = state.CurrentRealmId >= 1;
             _manualAllocationCheckBox.Disabled = !unlocked;
             _manualAllocationCheckBox.ButtonPressed = unlocked && state.UseManualAllocation;
@@ -2176,8 +2801,12 @@ namespace ImmortalIdle.UI
                 ? "已解锁手动分配。"
                 : "未达到筑基期，当前固定自动分配。";
 
-            _herbStrategyOption.Disabled = !unlocked;
+            _updatingHerbSlotUi = true;
+            _manualHerbSlotsCheckBox.Disabled = !unlocked;
+            _manualHerbSlotsCheckBox.ButtonPressed = unlocked && state.UseManualHerbSlots;
             SelectHerbStrategyOption(state.ActiveHerbStrategy);
+            RefreshHerbSlotEditors(state, unlocked);
+            _updatingHerbSlotUi = false;
 
             int currentCap = state.GetEffectiveInputMinuteCap();
             decimal currentRate = state.GetEffectiveInputConversionRate();
@@ -2209,6 +2838,7 @@ namespace ImmortalIdle.UI
             SetSliderValue("craft", (double)(state.ManualAllocationCraft * 100m));
 
             OnManualAllocationToggled(_manualAllocationCheckBox.ButtonPressed);
+            ApplyHerbSlotEditorState(unlocked);
             UpdateAllocationLabels();
         }
 
@@ -2233,6 +2863,57 @@ namespace ImmortalIdle.UI
             }
 
             UpdateAllocationLabels();
+        }
+
+        private void OnManualHerbSlotsToggled(bool enabled)
+        {
+            if (_updatingHerbSlotUi)
+            {
+                return;
+            }
+
+            var state = GameManager.Instance?.CurrentState;
+            bool unlocked = state != null && state.CurrentRealmId >= 1;
+            ApplyHerbSlotEditorState(unlocked);
+        }
+
+        private void RefreshHerbSlotEditors(GameState state, bool unlocked)
+        {
+            int activeSlots = Math.Min(state.HerbSlots.Count, _herbSlotOptions.Count);
+            for (int i = 0; i < _herbSlotOptions.Count; i++)
+            {
+                OptionButton option = _herbSlotOptions[i];
+                bool visible = i < activeSlots;
+                option.Visible = visible;
+                if (!visible)
+                {
+                    continue;
+                }
+
+                string herbId = state.HerbSlots[i].HerbId;
+                int selectedIndex = _herbSlotIds.FindIndex(x => x == herbId);
+                if (selectedIndex < 0)
+                {
+                    selectedIndex = 0;
+                }
+                option.Selected = selectedIndex;
+            }
+
+            ApplyHerbSlotEditorState(unlocked);
+        }
+
+        private void ApplyHerbSlotEditorState(bool unlocked)
+        {
+            bool manualMode = unlocked && (_manualHerbSlotsCheckBox?.ButtonPressed ?? false);
+            if (_herbStrategyOption != null)
+            {
+                _herbStrategyOption.Disabled = !unlocked || manualMode;
+            }
+
+            foreach (OptionButton option in _herbSlotOptions)
+            {
+                option.Disabled = !manualMode;
+            }
         }
 
         private static bool IsSliderAllowedByStage(string key, int realmId)
@@ -2304,10 +2985,32 @@ namespace ImmortalIdle.UI
             state.ManualAllocationPet = pet / sum;
             state.ManualAllocationAlchemy = alchemy / sum;
             state.ManualAllocationCraft = craft / sum;
-            state.ActiveHerbStrategy = GetSelectedHerbStrategyId();
+            state.UseManualHerbSlots = unlocked && (_manualHerbSlotsCheckBox?.ButtonPressed ?? false);
+            if (state.UseManualHerbSlots)
+            {
+                state.EnsureHerbGardenInitialized();
+                int slotCount = Math.Min(state.HerbSlots.Count, _herbSlotOptions.Count);
+                for (int i = 0; i < slotCount; i++)
+                {
+                    string herbId = GetSelectedHerbSlotId(i);
+                    HerbRuleConfig rule = ConfigLoader.GetHerbRule(herbId) ?? ConfigLoader.GetHerbRule("ningqi_grass");
+                    if (rule == null)
+                    {
+                        continue;
+                    }
+
+                    state.HerbSlots[i].HerbId = rule.HerbId;
+                    state.HerbSlots[i].GrowthRequirement = rule.GrowthRequirement;
+                }
+            }
+            else
+            {
+                state.ActiveHerbStrategy = GetSelectedHerbStrategyId();
+            }
 
             string mode = state.UseManualAllocation ? "手动分配" : "自动分配";
-            ShowToast($"分配设置已保存：{mode}", 1.5f);
+            string herbMode = state.UseManualHerbSlots ? "手动槽位" : "策略槽位";
+            ShowToast($"分配设置已保存：{mode} / {herbMode}", 1.5f);
         }
 
         private void PopulateHerbStrategyOptions()
@@ -2380,6 +3083,22 @@ namespace ImmortalIdle.UI
             }
 
             return ConfigLoader.GetDefaultHerbStrategyId();
+        }
+
+        private string GetSelectedHerbSlotId(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= _herbSlotOptions.Count || _herbSlotIds.Count == 0)
+            {
+                return "ningqi_grass";
+            }
+
+            int selected = _herbSlotOptions[slotIndex].Selected;
+            if (selected >= 0 && selected < _herbSlotIds.Count)
+            {
+                return _herbSlotIds[selected];
+            }
+
+            return _herbSlotIds[0];
         }
 
         private void ShowDebugPanel()
@@ -2626,7 +3345,7 @@ namespace ImmortalIdle.UI
             var state = GameManager.Instance?.CurrentState;
             if (state == null) return;
 
-            state.CurrentRealmId = Math.Min(state.CurrentRealmId + 1, 6);
+            state.CurrentRealmId = Math.Min(state.CurrentRealmId + 1, ConfigLoader.GetMaxRealmId());
             state.CurrentRealmLevel = 0;
             EventBus.Instance?.EmitRealmBreakthrough(state.CurrentRealmId, state.CurrentRealmLevel);
         }
@@ -2637,10 +3356,10 @@ namespace ImmortalIdle.UI
             if (state == null) return;
 
             state.CurrentRealmLevel++;
-            if (state.CurrentRealmLevel > 3)
+            if (state.CurrentRealmLevel > ConfigLoader.GetMaxRealmLevel())
             {
                 state.CurrentRealmLevel = 0;
-                state.CurrentRealmId = Math.Min(state.CurrentRealmId + 1, 6);
+                state.CurrentRealmId = Math.Min(state.CurrentRealmId + 1, ConfigLoader.GetMaxRealmId());
             }
 
             EventBus.Instance?.EmitRealmBreakthrough(state.CurrentRealmId, state.CurrentRealmLevel);
@@ -2711,8 +3430,8 @@ namespace ImmortalIdle.UI
             var state = GameManager.Instance?.CurrentState;
             if (state == null) return;
 
-            state.CurrentRealmId = 6;
-            state.CurrentRealmLevel = 3;
+            state.CurrentRealmId = ConfigLoader.GetMaxRealmId();
+            state.CurrentRealmLevel = ConfigLoader.GetMaxRealmLevel();
             state.CurrentCultivation = state.GetBreakthroughRequirement();
             EventBus.Instance?.EmitRealmBreakthrough(state.CurrentRealmId, state.CurrentRealmLevel);
             EventBus.Instance?.EmitCultivationChanged(state.CurrentCultivation, BigInteger.Zero);

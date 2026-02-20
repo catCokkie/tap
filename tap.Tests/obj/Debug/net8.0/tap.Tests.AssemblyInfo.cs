@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("tap.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9ce0eddde4227b643ebbd68aba4e1d1e655386f5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4e634eafb7942b2218c4a62f89750a39ea5e5ffd")]
 [assembly: System.Reflection.AssemblyProductAttribute("tap.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("tap.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

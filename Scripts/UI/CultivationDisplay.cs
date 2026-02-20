@@ -1,5 +1,6 @@
-﻿using Godot;
+using Godot;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace ImmortalIdle.UI
@@ -17,6 +18,8 @@ namespace ImmortalIdle.UI
         [Export] private Label _totalInputCountLabel;
         [Export] private Label _stageGoalLabel;
         [Export] private Label _etaLabel;
+        [Export] private Label _autoPillLabel;
+        [Export] private OptionButton _autoPillOption;
         [Export] private Button _cultivateButton;
         [Export] private Button _breakthroughButton;
 
@@ -28,6 +31,8 @@ namespace ImmortalIdle.UI
         private decimal _window60StartMain;
         private decimal _mainPerMin5m;
         private decimal _mainPerMin60m;
+        private readonly List<string> _autoPillItemIds = new();
+        private bool _updatingAutoPillOption;
 
         public override void _Ready()
         {
@@ -39,6 +44,8 @@ namespace ImmortalIdle.UI
             _totalInputCountLabel ??= GetNodeOrNull<Label>("VBoxContainer/TotalInputCountLabel");
             _stageGoalLabel ??= GetNodeOrNull<Label>("VBoxContainer/StageGoalLabel");
             _etaLabel ??= GetNodeOrNull<Label>("VBoxContainer/EtaLabel");
+            _autoPillLabel ??= GetNodeOrNull<Label>("VBoxContainer/AutoPillLabel");
+            _autoPillOption ??= GetNodeOrNull<OptionButton>("VBoxContainer/AutoPillOption");
             _cultivateButton ??= GetNode<Button>("VBoxContainer/ButtonContainer/CultivateButton");
             _breakthroughButton ??= GetNode<Button>("VBoxContainer/ButtonContainer/BreakthroughButton");
 
@@ -46,6 +53,7 @@ namespace ImmortalIdle.UI
             EnsureTotalInputCountLabel();
             EnsureStageGoalLabel();
             EnsureEtaLabel();
+            EnsureAutoPillControls();
 
             if (_cultivateButton != null)
             {
@@ -94,6 +102,11 @@ namespace ImmortalIdle.UI
             if (_breakthroughButton != null)
             {
                 _breakthroughButton.Pressed -= OnBreakthroughButtonPressed;
+            }
+
+            if (_autoPillOption != null)
+            {
+                _autoPillOption.ItemSelected -= OnAutoPillOptionSelected;
             }
 
             if (EventBus.Instance != null)
@@ -152,6 +165,8 @@ namespace ImmortalIdle.UI
             {
                 _etaLabel.Text = BuildEtaText(state, requirement);
             }
+
+            RefreshAutoPillControls(state);
 
             if (_breakthroughButton != null)
             {
@@ -285,6 +300,165 @@ namespace ImmortalIdle.UI
                 AutowrapMode = TextServer.AutowrapMode.WordSmart
             };
             vbox.AddChild(_etaLabel);
+        }
+
+        private void EnsureAutoPillControls()
+        {
+            var vbox = GetNodeOrNull<VBoxContainer>("VBoxContainer");
+            if (vbox == null)
+            {
+                return;
+            }
+
+            if (_autoPillLabel == null)
+            {
+                _autoPillLabel = new Label
+                {
+                    Name = "AutoPillLabel",
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Text = "自动服用丹药"
+                };
+                vbox.AddChild(_autoPillLabel);
+            }
+
+            if (_autoPillOption == null)
+            {
+                _autoPillOption = new OptionButton
+                {
+                    Name = "AutoPillOption",
+                    SizeFlagsHorizontal = SizeFlags.ExpandFill
+                };
+                vbox.AddChild(_autoPillOption);
+            }
+
+            _autoPillOption.ItemSelected -= OnAutoPillOptionSelected;
+            _autoPillOption.ItemSelected += OnAutoPillOptionSelected;
+        }
+
+        private void RefreshAutoPillControls(GameState state)
+        {
+            if (_autoPillLabel == null || _autoPillOption == null)
+            {
+                return;
+            }
+
+            bool unlocked = state.CurrentRealmId >= GameBalanceConfig.AlchemyUnlockRealmId;
+            _autoPillLabel.Visible = unlocked;
+            _autoPillOption.Visible = unlocked;
+            if (!unlocked)
+            {
+                return;
+            }
+
+            state.EnsureInventoryInitialized();
+            List<(string ItemId, string Name)> unlockedPills = GetUnlockedPills(state);
+
+            _updatingAutoPillOption = true;
+            _autoPillItemIds.Clear();
+            _autoPillOption.Clear();
+            _autoPillOption.AddItem("不自动服用", 0);
+            _autoPillItemIds.Add(string.Empty);
+
+            for (int i = 0; i < unlockedPills.Count; i++)
+            {
+                string itemId = unlockedPills[i].ItemId;
+                string name = unlockedPills[i].Name;
+                decimal quantity = state.GetInventoryQuantity(itemId);
+                _autoPillOption.AddItem($"{name}（库存 {quantity:F0}）", i + 1);
+                _autoPillItemIds.Add(itemId);
+            }
+
+            string selectedItemId = GetSelectedAutoPillItemId(state);
+            int selectedIndex = _autoPillItemIds.FindIndex(x => x == selectedItemId);
+            if (selectedIndex < 0)
+            {
+                selectedIndex = 0;
+            }
+
+            _autoPillOption.Selected = selectedIndex;
+            _updatingAutoPillOption = false;
+        }
+
+        private void OnAutoPillOptionSelected(long selected)
+        {
+            if (_updatingAutoPillOption)
+            {
+                return;
+            }
+
+            GameState state = GameManager.Instance?.CurrentState;
+            if (state == null || _autoPillItemIds.Count == 0)
+            {
+                return;
+            }
+
+            int index = (int)selected;
+            if (index < 0 || index >= _autoPillItemIds.Count)
+            {
+                index = 0;
+            }
+
+            string itemId = _autoPillItemIds[index];
+            state.AutoUseNingqiPill = false;
+            state.AutoUsePojingPill = false;
+
+            if (itemId == "ningqi_pill")
+            {
+                state.AutoUseNingqiPill = true;
+            }
+            else if (itemId == "pojing_pill")
+            {
+                state.AutoUsePojingPill = true;
+            }
+        }
+
+        private static string GetSelectedAutoPillItemId(GameState state)
+        {
+            if (state.AutoUseNingqiPill)
+            {
+                return "ningqi_pill";
+            }
+
+            if (state.AutoUsePojingPill)
+            {
+                return "pojing_pill";
+            }
+
+            return string.Empty;
+        }
+
+        private static List<(string ItemId, string Name)> GetUnlockedPills(GameState state)
+        {
+            var result = new List<(string ItemId, string Name)>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var recipes = ConfigLoader.GetAllAlchemyRecipes();
+            for (int i = 0; i < recipes.Count; i++)
+            {
+                AlchemyRecipeConfig recipe = recipes[i];
+                if (recipe.UnlockRealmId > state.CurrentRealmId || string.IsNullOrWhiteSpace(recipe.OutputItemId))
+                {
+                    continue;
+                }
+
+                if (!seen.Add(recipe.OutputItemId))
+                {
+                    continue;
+                }
+
+                result.Add((recipe.OutputItemId, ToPillDisplayName(recipe.OutputItemId)));
+            }
+
+            return result;
+        }
+
+        private static string ToPillDisplayName(string itemId)
+        {
+            return itemId switch
+            {
+                "ningqi_pill" => "凝气丹",
+                "pojing_pill" => "破境丹",
+                _ => itemId
+            };
         }
 
         private void InitializeEtaSamples()

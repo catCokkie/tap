@@ -1,0 +1,149 @@
+{
+  "format": 1,
+  "restore": {
+    "E:\\vsp\\tap\\.codex\\tmp_decode_verify.csproj": {}
+  },
+  "projects": {
+    "E:\\vsp\\tap\\.codex\\tmp_decode_verify.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "E:\\vsp\\tap\\.codex\\tmp_decode_verify.csproj",
+        "projectName": "tmp_decode_verify",
+        "projectPath": "E:\\vsp\\tap\\.codex\\tmp_decode_verify.csproj",
+        "packagesPath": "C:\\Users\\12600K\\.nuget\\packages\\",
+        "outputPath": "E:\\vsp\\tap\\.codex\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\12600K\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "E:\\vsp\\tap\\tap.csproj": {
+                "projectPath": "E:\\vsp\\tap\\tap.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.403/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "E:\\vsp\\tap\\tap.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "E:\\vsp\\tap\\tap.csproj",
+        "projectName": "tap",
+        "projectPath": "E:\\vsp\\tap\\tap.csproj",
+        "packagesPath": "C:\\Users\\12600K\\.nuget\\packages\\",
+        "outputPath": "E:\\vsp\\tap\\.godot\\mono\\temp\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\12600K\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Godot.SourceGenerators": {
+              "target": "Package",
+              "version": "[4.5.1, )",
+              "autoReferenced": true
+            },
+            "GodotSharp": {
+              "target": "Package",
+              "version": "[4.5.1, )",
+              "autoReferenced": true
+            },
+            "GodotSharpEditor": {
+              "target": "Package",
+              "version": "[4.5.1, )",
+              "autoReferenced": true
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.403/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

@@ -48,6 +48,7 @@ namespace ImmortalIdle
                     && root.TryGetProperty("schemaVersion", out JsonElement schemaEl)
                     && root.TryGetProperty("state", out JsonElement stateEl))
                 {
+                    bool hashMismatch = false;
                     int schemaVersion = schemaEl.GetInt32();
                     string rawStateJson = stateEl.GetRawText();
 
@@ -59,17 +60,34 @@ namespace ImmortalIdle
 
                     if (!string.IsNullOrWhiteSpace(hash))
                     {
-                        string actual = ComputeSha256(rawStateJson);
-                        if (!string.Equals(hash, actual, StringComparison.OrdinalIgnoreCase))
+                        string canonicalStateJson = CanonicalizeJson(rawStateJson);
+                        if (string.IsNullOrWhiteSpace(canonicalStateJson))
                         {
-                            result.ErrorCode = "hash_mismatch";
+                            result.ErrorCode = "invalid_state_json";
                             return result;
+                        }
+
+                        string canonicalHash = ComputeSha256(canonicalStateJson);
+                        string legacyHash = ComputeSha256(rawStateJson);
+                        bool hashMatched =
+                            string.Equals(hash, canonicalHash, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(hash, legacyHash, StringComparison.OrdinalIgnoreCase);
+                        if (!hashMatched)
+                        {
+                            // 校验失败仅告警，不阻断读档，避免历史格式差异导致玩家存档不可读。
+                            hashMismatch = true;
                         }
                     }
 
                     result.RawStateJson = rawStateJson;
                     result.SourceSchemaVersion = schemaVersion;
-                    return MigrateState(rawStateJson, schemaVersion, currentSchemaVersion, jsonOptions, defaultHerbStrategyId);
+                    DecodeResult migrated = MigrateState(rawStateJson, schemaVersion, currentSchemaVersion, jsonOptions, defaultHerbStrategyId);
+                    if (hashMismatch && migrated.Success && string.IsNullOrWhiteSpace(migrated.ErrorCode))
+                    {
+                        migrated.ErrorCode = "hash_mismatch";
+                    }
+
+                    return migrated;
                 }
 
                 // 兼容最早版本：直接序列化 GameState（视为 schema v1）。
@@ -138,6 +156,19 @@ namespace ImmortalIdle
             using SHA256 sha = SHA256.Create();
             byte[] hash = sha.ComputeHash(bytes);
             return Convert.ToHexString(hash);
+        }
+
+        private static string CanonicalizeJson(string json)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(json);
+                return JsonSerializer.Serialize(doc.RootElement);
+            }
+            catch (JsonException)
+            {
+                return string.Empty;
+            }
         }
 
         private static void ApplyMigrationV1ToV2(GameState state, string defaultHerbStrategyId)

@@ -71,7 +71,7 @@ public class SaveMigrationServiceTests
     }
 
     [Fact]
-    public void Decode_SchemaV2WithHashMismatch_ShouldFail()
+    public void Decode_SchemaV2WithHashMismatch_ShouldWarnButSucceed()
     {
         GameState state = new();
         string stateJson = JsonSerializer.Serialize(state, JsonOptions);
@@ -91,7 +91,7 @@ public class SaveMigrationServiceTests
             jsonOptions: JsonOptions,
             defaultHerbStrategyId: "balanced");
 
-        Assert.False(result.Success);
+        Assert.True(result.Success);
         Assert.Equal("hash_mismatch", result.ErrorCode);
     }
 
@@ -183,6 +183,108 @@ public class SaveMigrationServiceTests
         Assert.True(decode.Success);
         Assert.NotNull(decode.State);
         Assert.Equal("balanced", decode.State.ActiveHerbStrategy);
+    }
+
+    [Fact]
+    public void TryDecodeSave_WithIndentedEnvelope_ShouldSucceed()
+    {
+        JsonSerializerOptions indentedOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = true
+        };
+
+        GameState state = new()
+        {
+            LastSaveTime = 99
+        };
+
+        string envelopeJson = SaveArchiveService.BuildEnvelopeJson(
+            state,
+            schemaVersion: 2,
+            gameVersion: "0.2.1",
+            jsonOptions: indentedOptions);
+
+        SaveMigrationService.DecodeResult decode = SaveArchiveService.TryDecodeSave(
+            envelopeJson,
+            currentSchemaVersion: 2,
+            jsonOptions: indentedOptions,
+            defaultHerbStrategyId: "balanced");
+
+        Assert.True(decode.Success);
+        Assert.NotNull(decode.State);
+    }
+
+    [Fact]
+    public void Decode_EnvelopeWithLegacyRawHash_ShouldSucceed()
+    {
+        JsonSerializerOptions indentedOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = true
+        };
+
+        GameState state = new();
+        string rawStateJson = JsonSerializer.Serialize(state, indentedOptions);
+        string legacyHash = SaveMigrationService.ComputeSha256(rawStateJson);
+
+        string envelopeJson = $$"""
+        {
+          "schemaVersion": 2,
+          "gameVersion": "0.2.1",
+          "savedAt": 1,
+          "stateHash": "{{legacyHash}}",
+          "state": {{rawStateJson}}
+        }
+        """;
+
+        SaveMigrationService.DecodeResult decode = SaveArchiveService.TryDecodeSave(
+            envelopeJson,
+            currentSchemaVersion: 2,
+            jsonOptions: indentedOptions,
+            defaultHerbStrategyId: "balanced");
+
+        Assert.True(decode.Success);
+        Assert.NotNull(decode.State);
+    }
+
+    [Fact]
+    public void Decode_WithObjectBigIntegerField_ShouldSucceed()
+    {
+        string rawStateJson = """
+        {
+          "currentCultivation": "5",
+          "totalCultivationEarned": {
+            "isPowerOfTwo": false,
+            "isZero": false,
+            "isOne": false,
+            "isEven": false,
+            "sign": 1
+          }
+        }
+        """;
+        string hash = SaveMigrationService.ComputeSha256(rawStateJson);
+        string envelopeJson = $$"""
+        {
+          "schemaVersion": 2,
+          "gameVersion": "0.2.1",
+          "savedAt": 1,
+          "stateHash": "{{hash}}",
+          "state": {{rawStateJson}}
+        }
+        """;
+
+        SaveMigrationService.DecodeResult decode = SaveArchiveService.TryDecodeSave(
+            envelopeJson,
+            currentSchemaVersion: 2,
+            jsonOptions: JsonOptions,
+            defaultHerbStrategyId: "balanced");
+
+        Assert.True(decode.Success);
+        Assert.NotNull(decode.State);
+        Assert.True(decode.State.TotalCultivationEarned >= 0);
     }
 
     [Fact]

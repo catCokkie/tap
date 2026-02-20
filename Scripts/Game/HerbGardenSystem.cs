@@ -105,6 +105,20 @@ namespace ImmortalIdle
                 return;
             }
 
+            if (state.UseManualHerbSlots)
+            {
+                for (int i = 0; i < state.HerbSlots.Count; i++)
+                {
+                    string herbId = state.HerbSlots[i].HerbId;
+                    if (string.IsNullOrWhiteSpace(herbId) || ConfigLoader.GetHerbRule(herbId) == null)
+                    {
+                        state.HerbSlots[i].HerbId = "ningqi_grass";
+                    }
+                }
+
+                return;
+            }
+
             string defaultStrategyId = ConfigLoader.GetDefaultHerbStrategyId();
             HerbStrategyConfig strategy = ConfigLoader.GetHerbStrategy(state.ActiveHerbStrategy)
                 ?? ConfigLoader.GetHerbStrategy(defaultStrategyId);

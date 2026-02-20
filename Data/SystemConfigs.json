@@ -63,5 +63,28 @@
       { "rarity": "epic", "bonusType": "input_rate", "value": 0.15 },
       { "rarity": "epic", "bonusType": "herb_growth", "value": 0.20 }
     ]
+  },
+  "realmSystem": {
+    "levelNames": [ "初期", "中期", "后期", "圆满" ],
+    "realmStages": [
+      { "id": 0, "name": "炼气期", "baseRequirement": "2" },
+      { "id": 1, "name": "筑基期", "baseRequirement": "10" },
+      { "id": 2, "name": "灵寂期", "baseRequirement": "40" },
+      { "id": 3, "name": "金丹期", "baseRequirement": "200" },
+      { "id": 4, "name": "元婴期", "baseRequirement": "1000" },
+      { "id": 5, "name": "度劫期", "baseRequirement": "4000" },
+      { "id": 6, "name": "分神期", "baseRequirement": "20000" }
+    ],
+    "stageGoals": [
+      { "realmId": 0, "goalText": "目标：突破到筑基，解锁灵药园与炼丹房。" },
+      { "realmId": 1, "goalText": "目标：突破到灵寂，解锁灵宠园。" },
+      { "realmId": 2, "goalText": "目标：突破到金丹，强化资源循环效率。" },
+      { "realmId": 3, "goalText": "目标：突破到元婴，解锁炼器坊。" },
+      { "realmId": 4, "goalText": "目标：推进度劫阶段，准备高阶资源。" },
+      { "realmId": 5, "goalText": "目标：冲击分神圆满，准备转世。" },
+      { "realmId": 6, "goalText": "目标：达到分神圆满并满足转世条件。" }
+    ],
+    "rebirthReadyGoalText": "目标：可转世，建议先确认本轮资源后再突破。",
+    "rebirthPendingGoalText": "目标：达到分神圆满并满足转世条件。"
   }
 }
