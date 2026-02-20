@@ -74,6 +74,7 @@ namespace ImmortalIdle.UI
         private OptionButton _balanceProfileOption;
         private Label _balanceProfileLabel;
         private RuntimePerformanceTracker _runtimePerformanceTracker;
+        private StateForecastTracker _stateForecastTracker;
         private AcceptDialog _performanceStatsDialog;
         private Label _performanceStatsLabel;
         private AcceptDialog _backpackDialog;
@@ -90,6 +91,7 @@ namespace ImmortalIdle.UI
         private Label _inventoryPageLabel;
         private TabContainer _subsystemTabs;
         private readonly Dictionary<MenuButton, Dictionary<long, Action>> _subsystemMenuActions = new();
+        private HudDebugCommandService _debugCommandService;
 
         private readonly Dictionary<string, HSlider> _allocationSliders = new();
         private readonly Dictionary<string, Label> _allocationValueLabels = new();
@@ -169,6 +171,11 @@ namespace ImmortalIdle.UI
             SimplifyBottomActionBar();
             EnsureInputStatsButton();
             _runtimePerformanceTracker ??= new RuntimePerformanceTracker();
+            _stateForecastTracker ??= new StateForecastTracker();
+            _debugCommandService = new HudDebugCommandService(
+                () => GameManager.Instance?.GetNodeOrNull<SaveSystem>("SaveSystem"),
+                () => GetTree().ReloadCurrentScene(),
+                ShowToast);
             ApplyUiPolish();
             ApplyResponsiveMainLayout(force: true);
         }
@@ -196,6 +203,7 @@ namespace ImmortalIdle.UI
         public override void _Process(double delta)
         {
             _runtimePerformanceTracker?.Update(delta);
+            _stateForecastTracker?.Update(GameManager.Instance?.CurrentState, delta);
 
             if (_roundRunning)
             {
@@ -3189,8 +3197,12 @@ namespace ImmortalIdle.UI
             }
 
             _debugRuntimeMetrics = CalculateDebugRuntimeMetrics(state);
+            StateForecastTracker.ForecastResult forecast = _stateForecastTracker?.BuildForecast(state) ?? default;
             string herbPaybackText = FormatMinutesEstimate(_debugRuntimeMetrics.HerbPaybackMin);
             string alchemyPaybackText = FormatMinutesEstimate(_debugRuntimeMetrics.AlchemyPaybackMin);
+            string forecastHeader = BuildForecastHeader(forecast);
+            string forecast8h = BuildForecastLine("8h", forecast.In8Hours);
+            string forecast24h = BuildForecastLine("24h", forecast.In24Hours);
 
             _debugStateLabel.Text =
                 $"境界：{state.GetCurrentRealmName()} | 修为：{GameManager.FormatNumber(state.CurrentCultivation)}\n" +
@@ -3207,6 +3219,9 @@ namespace ImmortalIdle.UI
                 $"破境丹：{(state.PojingPillRemainingSeconds > 0 ? $"生效 {state.PojingPillRemainingSeconds:F0}s" : "未生效")} 自动:{(state.AutoUsePojingPill ? "开" : "关")}\n" +
                 $"调试估算（最近窗口）：主线占比 {_debugRuntimeMetrics.MainlineShare * 100m:F1}% | 灵药回本 {herbPaybackText} | 炼丹回本 {alchemyPaybackText}\n" +
                 $"速率参考：凝气草 {_debugRuntimeMetrics.GrassPerMin:F2}/分 | 青灵叶 {_debugRuntimeMetrics.LeafPerMin:F2}/分 | 炼丹进度 {_debugRuntimeMetrics.AlchemyProgressPerMin:F2}/分\n" +
+                $"{forecastHeader}\n" +
+                $"{forecast8h}\n" +
+                $"{forecast24h}\n" +
                 $"可转世：{(state.CanRebirth() ? "是" : "否")}";
         }
 
@@ -3318,349 +3333,160 @@ namespace ImmortalIdle.UI
             return $"{minutes:F1}分";
         }
 
+        private static string BuildForecastHeader(StateForecastTracker.ForecastResult forecast)
+        {
+            if (!forecast.Ready)
+            {
+                return $"10分钟模拟器：采样不足（样本 {forecast.SampleCount}，覆盖 {forecast.WindowSeconds:F0}s）";
+            }
+
+            return $"10分钟模拟器：样本 {forecast.SampleCount}，覆盖 {forecast.WindowSeconds / 60.0:F1} 分钟，修为速率 {forecast.CultivationPerSec:F1}/秒";
+        }
+
+        private static string BuildForecastLine(string tag, StateForecastTracker.ForecastState state)
+        {
+            return $"预测{tag}：修为 {GameManager.FormatNumber(state.CurrentCultivation)} | 池 药{state.HerbGardenPool:F0}/宠{state.SpiritPetPool:F0}/丹{state.AlchemyPool:F0}/器{state.CraftPool:F0} | " +
+                $"库存 草{state.NingqiGrass:F0}/叶{state.QinglingLeaf:F0}/凝气丹{state.NingqiPill:F0}/破境丹{state.PojingPill:F0} | 进度 宠{state.SpiritPetProgress:F0}/丹{state.AlchemyProgress:F0}/器{state.CraftProgress:F0}";
+        }
+
         private void AddCultivation(long amount)
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            BigInteger gain = new BigInteger(amount);
-            state.CurrentCultivation += gain;
-            state.TotalCultivationEarned += gain;
-            EventBus.Instance?.EmitCultivationChanged(state.CurrentCultivation, gain);
-            ShowToast($"+{amount} 修为", 1.2f);
+            _debugCommandService?.AddCultivation(amount);
         }
 
         private void SetCultivation(BigInteger value)
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.CurrentCultivation = value;
-            EventBus.Instance?.EmitCultivationChanged(state.CurrentCultivation, BigInteger.Zero);
-            ShowToast("修为已重置", 1.2f);
+            _debugCommandService?.SetCultivation(value);
         }
 
         private void StepRealmForward()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.CurrentRealmId = Math.Min(state.CurrentRealmId + 1, ConfigLoader.GetMaxRealmId());
-            state.CurrentRealmLevel = 0;
-            EventBus.Instance?.EmitRealmBreakthrough(state.CurrentRealmId, state.CurrentRealmLevel);
+            _debugCommandService?.StepRealmForward();
         }
 
         private void StepRealmLevelForward()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.CurrentRealmLevel++;
-            if (state.CurrentRealmLevel > ConfigLoader.GetMaxRealmLevel())
-            {
-                state.CurrentRealmLevel = 0;
-                state.CurrentRealmId = Math.Min(state.CurrentRealmId + 1, ConfigLoader.GetMaxRealmId());
-            }
-
-            EventBus.Instance?.EmitRealmBreakthrough(state.CurrentRealmId, state.CurrentRealmLevel);
+            _debugCommandService?.StepRealmLevelForward();
         }
 
         private void ResetRealmProgress()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.CurrentRealmId = 0;
-            state.CurrentRealmLevel = 0;
-            state.CurrentCultivation = 0;
-            EventBus.Instance?.EmitRealmBreakthrough(state.CurrentRealmId, state.CurrentRealmLevel);
-            EventBus.Instance?.EmitCultivationChanged(state.CurrentCultivation, BigInteger.Zero);
+            _debugCommandService?.ResetRealmProgress();
         }
 
         private void AddPool(string pool, decimal amount)
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            switch (pool)
-            {
-                case "herb":
-                    state.HerbGardenPool += amount;
-                    break;
-                case "pet":
-                    state.SpiritPetPool += amount;
-                    break;
-                case "alchemy":
-                    state.AlchemyPool += amount;
-                    break;
-                case "craft":
-                    state.CraftPool += amount;
-                    break;
-            }
-
-            ShowToast($"{pool}池 +{amount}", 1.0f);
+            _debugCommandService?.AddPool(pool, amount);
         }
 
         private void TogglePassiveCultivation()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnablePassiveCultivation = !state.EnablePassiveCultivation;
-            ShowToast($"被动修炼：{(state.EnablePassiveCultivation ? "开启" : "关闭")}", 1.2f);
+            _debugCommandService?.TogglePassiveCultivation();
         }
 
         private void SetDebugProgressMultiplier(decimal multiplier)
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.DebugProgressMultiplier = multiplier;
-            ShowToast($"调试倍率已设置为 x{state.GetEffectiveDebugProgressMultiplier():F1}", 1.2f);
+            _debugCommandService?.SetDebugProgressMultiplier(multiplier);
         }
 
         private void TriggerDebugEvent()
         {
-            GameManager.Instance?.OnPlayerClick();
-            ShowToast("已触发一次输入流程", 1.2f);
+            _debugCommandService?.TriggerDebugEvent();
         }
 
         private void MakeRebirthReady()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.CurrentRealmId = ConfigLoader.GetMaxRealmId();
-            state.CurrentRealmLevel = ConfigLoader.GetMaxRealmLevel();
-            state.CurrentCultivation = state.GetBreakthroughRequirement();
-            EventBus.Instance?.EmitRealmBreakthrough(state.CurrentRealmId, state.CurrentRealmLevel);
-            EventBus.Instance?.EmitCultivationChanged(state.CurrentCultivation, BigInteger.Zero);
-            ShowToast("已设为可转世状态", 1.5f);
+            _debugCommandService?.MakeRebirthReady();
         }
 
         private void ForceRebirth()
         {
-            bool ok = GameManager.Instance?.TryBreakthrough() ?? false;
-            ShowToast(ok ? "转世触发成功" : "当前无法转世", 1.5f);
+            _debugCommandService?.ForceRebirth();
         }
 
         private void SaveAndReloadScene()
         {
-            var state = GameManager.Instance?.CurrentState;
-            var save = GameManager.Instance?.GetNodeOrNull<SaveSystem>("SaveSystem");
-            if (state != null && save != null)
-            {
-                save.SaveGame(state, force: true);
-            }
-            GetTree().ReloadCurrentScene();
-        }
-
-        private static decimal GetHerbInventory(GameState state, string herbId)
-        {
-            return state.GetInventoryQuantity(herbId);
+            _debugCommandService?.SaveAndReloadScene();
         }
 
         private void ForceHerbSlotsReady()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureHerbGardenInitialized();
-            foreach (var slot in state.HerbSlots)
-            {
-                slot.GrowthProgress = slot.GrowthRequirement;
-            }
-            ShowToast("灵药槽进度已置满", 1.2f);
+            _debugCommandService?.ForceHerbSlotsReady();
         }
 
         private void ForceSpiritPetReady()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-            if (state.CurrentRealmId < 2)
-            {
-                ShowToast("灵宠园未解锁", 1.2f);
-                return;
-            }
-
-            state.SpiritPetProgress = state.SpiritPetCaptureRequirement;
-            ShowToast("灵宠捕捉进度已置满", 1.2f);
+            _debugCommandService?.ForceSpiritPetReady();
         }
 
         private void ToggleSpiritPetAutoDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.SpiritPetAutoEnabled = !state.SpiritPetAutoEnabled;
-            ShowToast($"灵宠自动捕捉：{(state.SpiritPetAutoEnabled ? "开启" : "关闭")}", 1.5f);
+            _debugCommandService?.ToggleSpiritPetAutoDebug();
         }
 
         private void ShowSpiritPetSummary()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            if (state.SpiritPets.Count == 0)
-            {
-                ShowToast($"灵宠 {state.SpiritPets.Count}/{state.GetSpiritPetCapacity()}（暂无）", 2.0f);
-                return;
-            }
-
-            var first = state.SpiritPets[0];
-            ShowToast($"灵宠 {state.SpiritPets.Count}/{state.GetSpiritPetCapacity()} | 首只：{first.Name} Lv{first.Level}", 2.0f);
+            _debugCommandService?.ShowSpiritPetSummary();
         }
 
         private void AddHerbInventoryDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureHerbGardenInitialized();
-            state.AddInventoryItem("ningqi_grass", "herb", 10m);
-            state.AddInventoryItem("qingling_leaf", "herb", 10m);
-            ShowToast("基础药材各 +10", 1.2f);
+            _debugCommandService?.AddHerbInventoryDebug();
         }
 
         private void ShowHerbInventorySummary()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureHerbGardenInitialized();
-            ShowToast(
-                $"凝气草:{GetHerbInventory(state, "ningqi_grass"):F0} 青灵叶:{GetHerbInventory(state, "qingling_leaf"):F0}",
-                2.0f);
+            _debugCommandService?.ShowHerbInventorySummary();
         }
 
         private void AddAlchemyMaterialsDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureInventoryInitialized();
-            state.AddInventoryItem("ningqi_grass", "herb", 10m);
-            state.AddInventoryItem("qingling_leaf", "herb", 10m);
-            state.AddInventoryItem("chiyan_fruit", "herb", 10m);
-            state.AddInventoryItem("hansui_flower", "herb", 10m);
-            ShowToast("炼丹材料各 +10", 1.2f);
+            _debugCommandService?.AddAlchemyMaterialsDebug();
         }
 
         private void ToggleAlchemyRecipeDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            var recipes = ConfigLoader.GetAllAlchemyRecipes();
-            if (recipes.Count == 0) return;
-
-            int index = 0;
-            for (int i = 0; i < recipes.Count; i++)
-            {
-                if (recipes[i].Id == state.ActiveAlchemyRecipeId)
-                {
-                    index = i;
-                    break;
-                }
-            }
-
-            int next = (index + 1) % recipes.Count;
-            state.ActiveAlchemyRecipeId = recipes[next].Id;
-            ShowToast($"已切换丹方：{state.ActiveAlchemyRecipeId}", 1.5f);
+            _debugCommandService?.ToggleAlchemyRecipeDebug();
         }
 
         private void ShowPillInventorySummary()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureInventoryInitialized();
-            ShowToast($"凝气丹:{state.GetInventoryQuantity("ningqi_pill"):F0} 破境丹:{state.GetInventoryQuantity("pojing_pill"):F0}", 2.0f);
+            _debugCommandService?.ShowPillInventorySummary();
         }
 
         private void AddCraftMaterialsDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureInventoryInitialized();
-            state.AddInventoryItem("pet_essence", "pet_material", 10m);
-            state.AddInventoryItem("xuanxin_zhi", "herb", 10m);
-            state.AddInventoryItem("xingchen_lotus", "herb", 10m);
-            ShowToast("炼器材料 +10（精华/玄心芝/星尘莲）", 1.2f);
+            _debugCommandService?.AddCraftMaterialsDebug();
         }
 
         private void ToggleCraftRecipeDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            var recipes = ConfigLoader.GetAllCraftRecipes();
-            if (recipes.Count == 0) return;
-
-            int index = 0;
-            for (int i = 0; i < recipes.Count; i++)
-            {
-                if (recipes[i].Id == state.ActiveCraftRecipeId)
-                {
-                    index = i;
-                    break;
-                }
-            }
-
-            int next = (index + 1) % recipes.Count;
-            state.ActiveCraftRecipeId = recipes[next].Id;
-            ShowToast($"已切换炼器图谱：{state.ActiveCraftRecipeId}", 1.5f);
+            _debugCommandService?.ToggleCraftRecipeDebug();
         }
 
         private void ShowCraftInventorySummary()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureInventoryInitialized();
-            ShowToast(
-                $"御风碎片:{state.GetInventoryQuantity("craft_shard"):F0} 镇岳碎片:{state.GetInventoryQuantity("craft_realm_shard"):F0} " +
-                $"转化+{state.GetCraftInputRateBonus() * 100m:F0}% 突破-{state.GetCraftBreakthroughReductionBonus() * 100m:F0}%",
-                2.0f);
+            _debugCommandService?.ShowCraftInventorySummary();
         }
 
         private void ConsumeNingqiPillDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureInventoryInitialized();
-            bool ok = state.TryConsumeNingqiPill();
-            ShowToast(ok ? "已服用凝气丹" : "凝气丹不足，无法服用", 1.5f);
+            _debugCommandService?.ConsumeNingqiPillDebug();
         }
 
         private void ToggleAutoUseNingqiPillDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.AutoUseNingqiPill = !state.AutoUseNingqiPill;
-            ShowToast($"自动服用凝气丹：{(state.AutoUseNingqiPill ? "开启" : "关闭")}", 1.5f);
+            _debugCommandService?.ToggleAutoUseNingqiPillDebug();
         }
 
         private void ConsumePojingPillDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.EnsureInventoryInitialized();
-            bool ok = state.TryConsumePojingPill();
-            ShowToast(ok ? "已服用破境丹" : "破境丹不足，无法服用", 1.5f);
+            _debugCommandService?.ConsumePojingPillDebug();
         }
 
         private void ToggleAutoUsePojingPillDebug()
         {
-            var state = GameManager.Instance?.CurrentState;
-            if (state == null) return;
-
-            state.AutoUsePojingPill = !state.AutoUsePojingPill;
-            ShowToast($"自动服用破境丹：{(state.AutoUsePojingPill ? "开启" : "关闭")}", 1.5f);
+            _debugCommandService?.ToggleAutoUsePojingPillDebug();
         }
     }
 }

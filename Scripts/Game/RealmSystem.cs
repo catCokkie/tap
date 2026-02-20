@@ -1,11 +1,12 @@
-﻿using Godot;
+using Godot;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace ImmortalIdle
 {
     /// <summary>
-    /// 境界系统：维护境界配置并提供突破进度计算。
+    /// 境界系统：读取配置并提供突破进度计算。
     /// </summary>
     public partial class RealmSystem : Node
     {
@@ -20,77 +21,7 @@ namespace ImmortalIdle
             public string Name { get; set; } = "";
             public string Description { get; set; } = "";
             public BigInteger BaseRequirement { get; set; }
-            public string[] UnlockContent { get; set; } = new string[0];
-        }
-
-        private RealmInfo[] _realms;
-
-        public override void _Ready()
-        {
-            InitializeRealms();
-        }
-
-        private void InitializeRealms()
-        {
-            _realms = new[]
-            {
-                new RealmInfo
-                {
-                    Id = 0,
-                    Name = "炼气期",
-                    Description = "修行起步，打牢根基。",
-                    BaseRequirement = 100,
-                    UnlockContent = new[] { "基础修炼", "输入转化" }
-                },
-                new RealmInfo
-                {
-                    Id = 1,
-                    Name = "筑基期",
-                    Description = "道基已成，自动系统开始联动。",
-                    BaseRequirement = 500,
-                    UnlockContent = new[] { "灵药园", "炼丹房（基础丹方）" }
-                },
-                new RealmInfo
-                {
-                    Id = 2,
-                    Name = "灵寂期",
-                    Description = "神识渐稳，灵宠系统开启。",
-                    BaseRequirement = 2000,
-                    UnlockContent = new[] { "灵宠园", "灵宠加成" }
-                },
-                new RealmInfo
-                {
-                    Id = 3,
-                    Name = "金丹期",
-                    Description = "丹成有象，养成速度明显提升。",
-                    BaseRequirement = 10000,
-                    UnlockContent = new[] { "分配策略扩展", "中期加速阶段" }
-                },
-                new RealmInfo
-                {
-                    Id = 4,
-                    Name = "元婴期",
-                    Description = "元婴凝成，炼器方向开放。",
-                    BaseRequirement = 50000,
-                    UnlockContent = new[] { "炼器坊", "高阶丹方" }
-                },
-                new RealmInfo
-                {
-                    Id = 5,
-                    Name = "度劫期",
-                    Description = "劫中求生，强化长线构筑。",
-                    BaseRequirement = 200000,
-                    UnlockContent = new[] { "后期构筑", "高阶成长目标" }
-                },
-                new RealmInfo
-                {
-                    Id = 6,
-                    Name = "分神期",
-                    Description = "分神化念，迈向转世轮回。",
-                    BaseRequirement = 1000000,
-                    UnlockContent = new[] { "转世准备", "终局循环" }
-                }
-            };
+            public string[] UnlockContent { get; set; } = Array.Empty<string>();
         }
 
         public RealmInfo GetCurrentRealmInfo()
@@ -101,22 +32,25 @@ namespace ImmortalIdle
 
         public RealmInfo GetRealmInfo(int realmId)
         {
-            if (realmId >= 0 && realmId < _realms.Length)
+            int normalizedRealmId = Math.Clamp(realmId, 0, ConfigLoader.GetMaxRealmId());
+            return new RealmInfo
             {
-                return _realms[realmId];
-            }
-
-            return _realms[0];
+                Id = normalizedRealmId,
+                Name = ConfigLoader.GetRealmName(normalizedRealmId),
+                Description = ConfigLoader.GetStageGoalText(normalizedRealmId),
+                BaseRequirement = ConfigLoader.GetRealmBaseRequirement(normalizedRealmId),
+                UnlockContent = GetUnlockContent(normalizedRealmId)
+            };
         }
 
         public int GetRealmCount()
         {
-            return _realms?.Length ?? 7;
+            return ConfigLoader.GetMaxRealmId() + 1;
         }
 
         public bool IsMaxRealm(int realmId)
         {
-            return realmId >= _realms.Length - 1;
+            return realmId >= ConfigLoader.GetMaxRealmId();
         }
 
         public override void _Process(double delta)
@@ -178,7 +112,7 @@ namespace ImmortalIdle
 
             if (bucket is 25 or 50 or 75 or 100)
             {
-                var log = GameManager.Instance?.GetNodeOrNull<LogSystem>("LogSystem");
+                LogSystem log = GameManager.Instance?.GetNodeOrNull<LogSystem>("LogSystem");
                 if (log != null)
                 {
                     log.AddLog("breakthrough", $"突破进度 {bucket}%（{state.GetCurrentRealmName()}）");
@@ -186,6 +120,32 @@ namespace ImmortalIdle
             }
 
             _lastLoggedProgressBucket = bucket;
+        }
+
+        private static string[] GetUnlockContent(int realmId)
+        {
+            var unlocks = new List<string>();
+            if (realmId == GameBalanceConfig.HerbUnlockRealmId)
+            {
+                unlocks.Add("灵药园");
+            }
+
+            if (realmId == GameBalanceConfig.SpiritPetUnlockRealmId)
+            {
+                unlocks.Add("灵宠园");
+            }
+
+            if (realmId == GameBalanceConfig.AlchemyUnlockRealmId)
+            {
+                unlocks.Add("炼丹房");
+            }
+
+            if (realmId == GameBalanceConfig.CraftUnlockRealmId)
+            {
+                unlocks.Add("炼器坊");
+            }
+
+            return unlocks.ToArray();
         }
     }
 }
